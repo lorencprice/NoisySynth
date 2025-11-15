@@ -6,9 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,6 +57,8 @@ fun SynthUI(synthEngine: SynthEngine) {
     var lfoRate by remember { mutableStateOf(2.0f) }
     var lfoAmount by remember { mutableStateOf(0.0f) }
     
+    var selectedTab by remember { mutableStateOf(0) }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -95,155 +95,294 @@ fun SynthUI(synthEngine: SynthEngine) {
             }
         }
         
-        // Scrollable Controls Section
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        // Tab Row
+        TabRow(
+            selectedTabIndex = selectedTab,
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.primary
         ) {
-        
-        // Oscillator Section
-        SectionCard(title = "OSCILLATOR") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf("Sine", "Saw", "Square", "Tri").forEachIndexed { index, name ->
-                    Button(
-                        onClick = {
-                            waveform = index
-                            synthEngine.setWaveform(index)
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(52.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (waveform == index) 
-                                MaterialTheme.colorScheme.primary 
-                            else 
-                                MaterialTheme.colorScheme.surface
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = if (waveform == index) 4.dp else 0.dp
-                        ),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text(
-                            name,
-                            fontSize = 14.sp,
-                            fontWeight = if (waveform == index) FontWeight.Bold else FontWeight.Medium,
-                            color = if (waveform == index)
-                                MaterialTheme.colorScheme.onPrimary
-                            else
-                                MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
-            }
+            Tab(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                text = { Text("OSC", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                text = { Text("FILTER", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 2,
+                onClick = { selectedTab = 2 },
+                text = { Text("ENV", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                text = { Text("LFO", fontWeight = FontWeight.Bold) }
+            )
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Filter Section
-        SectionCard(title = "FILTER") {
-            Column {
-                ParamSlider(
-                    label = "Cutoff",
-                    value = filterCutoff,
-                    onValueChange = { 
-                        filterCutoff = it
-                        synthEngine.setFilterCutoff(it)
+        // Tab Content
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            when (selectedTab) {
+                0 -> OscillatorTab(
+                    waveform = waveform,
+                    onWaveformChange = { 
+                        waveform = it
+                        synthEngine.setWaveform(it)
                     }
                 )
-                
-                ParamSlider(
-                    label = "Resonance",
-                    value = filterResonance,
-                    onValueChange = { 
+                1 -> FilterTab(
+                    cutoff = filterCutoff,
+                    resonance = filterResonance,
+                    onCutoffChange = { 
+                        filterCutoff = it
+                        synthEngine.setFilterCutoff(it)
+                    },
+                    onResonanceChange = { 
                         filterResonance = it
                         synthEngine.setFilterResonance(it)
                     }
                 )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Envelope Section
-        SectionCard(title = "ENVELOPE (ADSR)") {
-            Column {
-                ParamSlider(
-                    label = "Attack",
-                    value = attack,
-                    onValueChange = { 
+                2 -> EnvelopeTab(
+                    attack = attack,
+                    decay = decay,
+                    sustain = sustain,
+                    release = release,
+                    onAttackChange = { 
                         attack = it
-                        synthEngine.setAttack(it * 2.0f) // Scale to 0-2 seconds
+                        synthEngine.setAttack(it * 2.0f)
                     },
-                    valueDisplay = String.format("%.2fs", attack * 2.0f)
-                )
-                
-                ParamSlider(
-                    label = "Decay",
-                    value = decay,
-                    onValueChange = { 
+                    onDecayChange = { 
                         decay = it
                         synthEngine.setDecay(it * 2.0f)
                     },
-                    valueDisplay = String.format("%.2fs", decay * 2.0f)
-                )
-                
-                ParamSlider(
-                    label = "Sustain",
-                    value = sustain,
-                    onValueChange = { 
+                    onSustainChange = { 
                         sustain = it
                         synthEngine.setSustain(it)
-                    }
-                )
-                
-                ParamSlider(
-                    label = "Release",
-                    value = release,
-                    onValueChange = { 
+                    },
+                    onReleaseChange = { 
                         release = it
                         synthEngine.setRelease(it * 2.0f)
-                    },
-                    valueDisplay = String.format("%.2fs", release * 2.0f)
+                    }
                 )
-            }
-        }
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // LFO Section
-        SectionCard(title = "LFO") {
-            Column {
-                ParamSlider(
-                    label = "Rate",
-                    value = lfoRate / 10.0f, // Scale to 0-10 Hz
-                    onValueChange = { 
+                3 -> LFOTab(
+                    rate = lfoRate,
+                    amount = lfoAmount,
+                    onRateChange = { 
                         lfoRate = it * 10.0f
                         synthEngine.setLFORate(lfoRate)
                     },
-                    valueDisplay = String.format("%.1f Hz", lfoRate)
-                )
-                
-                ParamSlider(
-                    label = "Amount",
-                    value = lfoAmount,
-                    onValueChange = { 
+                    onAmountChange = { 
                         lfoAmount = it
                         synthEngine.setLFOAmount(it)
                     }
                 )
             }
         }
+    }
+}
+
+@Composable
+fun OscillatorTab(
+    waveform: Int,
+    onWaveformChange: (Int) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "WAVEFORM",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
         
-        // Bottom spacer to ensure last item is fully visible when scrolling
-        Spacer(modifier = Modifier.height(32.dp))
+        Column(
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            listOf(
+                "Sine Wave" to 0,
+                "Sawtooth" to 1,
+                "Square Wave" to 2,
+                "Triangle" to 3
+            ).forEach { (name, index) ->
+                Button(
+                    onClick = { onWaveformChange(index) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (waveform == index) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = if (waveform == index) 6.dp else 2.dp
+                    ),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        name,
+                        fontSize = 18.sp,
+                        fontWeight = if (waveform == index) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+            }
         }
+    }
+}
+
+@Composable
+fun FilterTab(
+    cutoff: Float,
+    resonance: Float,
+    onCutoffChange: (Float) -> Unit,
+    onResonanceChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 32.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "FILTER",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+        
+        ParamSlider(
+            label = "Cutoff Frequency",
+            value = cutoff,
+            onValueChange = onCutoffChange,
+            valueDisplay = String.format("%.0f%%", cutoff * 100)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        ParamSlider(
+            label = "Resonance",
+            value = resonance,
+            onValueChange = onResonanceChange,
+            valueDisplay = String.format("%.0f%%", resonance * 100)
+        )
+    }
+}
+
+@Composable
+fun EnvelopeTab(
+    attack: Float,
+    decay: Float,
+    sustain: Float,
+    release: Float,
+    onAttackChange: (Float) -> Unit,
+    onDecayChange: (Float) -> Unit,
+    onSustainChange: (Float) -> Unit,
+    onReleaseChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "ENVELOPE (ADSR)",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+        
+        ParamSlider(
+            label = "Attack",
+            value = attack,
+            onValueChange = onAttackChange,
+            valueDisplay = String.format("%.2fs", attack * 2.0f)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        ParamSlider(
+            label = "Decay",
+            value = decay,
+            onValueChange = onDecayChange,
+            valueDisplay = String.format("%.2fs", decay * 2.0f)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        ParamSlider(
+            label = "Sustain",
+            value = sustain,
+            onValueChange = onSustainChange,
+            valueDisplay = String.format("%.0f%%", sustain * 100)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        ParamSlider(
+            label = "Release",
+            value = release,
+            onValueChange = onReleaseChange,
+            valueDisplay = String.format("%.2fs", release * 2.0f)
+        )
+    }
+}
+
+@Composable
+fun LFOTab(
+    rate: Float,
+    amount: Float,
+    onRateChange: (Float) -> Unit,
+    onAmountChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 32.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "LFO (Low Frequency Oscillator)",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 32.dp)
+        )
+        
+        ParamSlider(
+            label = "Rate",
+            value = rate / 10.0f,
+            onValueChange = onRateChange,
+            valueDisplay = String.format("%.1f Hz", rate)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        ParamSlider(
+            label = "Modulation Amount",
+            value = amount,
+            onValueChange = onAmountChange,
+            valueDisplay = String.format("%.0f%%", amount * 100)
+        )
     }
 }
 
