@@ -130,25 +130,25 @@
 ║                              KEY IMPROVEMENTS                                ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                              ║
-║  ✅ FIXED: Double-tap stuck notes                                           ║
+║  FIXED: Double-tap stuck notes                                              ║
 ║     - Note retriggering instead of double allocation                        ║
 ║     - Proper voice state tracking                                           ║
 ║                                                                              ║
-║  ✅ NEW: State Variable Filter                                              ║
+║  NEW: State Variable Filter                                                 ║
 ║     - Exponential frequency mapping (20Hz - 12kHz)                          ║
 ║     - Real resonance with Q factor                                          ║
 ║     - Modulation input support                                              ║
 ║                                                                              ║
-║  ✅ WORKING: LFO now routes to filter                                       ║
+║  WORKING: LFO now routes to filter                                         ║
 ║     - Bipolar modulation (-0.5 to +0.5)                                     ║
 ║     - Smooth sine wave                                                      ║
 ║                                                                              ║
-║  ✅ NEW: Filter Envelope                                                    ║
+║  NEW: Filter Envelope                                                       ║
 ║     - Full ADSR control                                                     ║
 ║     - Adjustable amount (depth)                                             ║
 ║     - Combines with LFO for complex modulation                              ║
 ║                                                                              ║
-║  ✅ IMPROVED: Audio mixing                                                  ║
+║  IMPROVED: Audio mixing                                                     ║
 ║     - Per-voice normalization (√n scaling)                                  ║
 ║     - Soft clipping (tanh saturation)                                       ║
 ║                                                                              ║
