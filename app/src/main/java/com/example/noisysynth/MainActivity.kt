@@ -61,6 +61,21 @@ fun SynthUI(synthEngine: SynthEngine) {
     var filterEnvAmount by remember { mutableStateOf(0.5f) }
     var lfoRate by remember { mutableStateOf(2.0f) }
     var lfoAmount by remember { mutableStateOf(0.0f) }
+
+    var delayEnabled by remember { mutableStateOf(false) }
+    var delayTime by remember { mutableStateOf(0.35f) }
+    var delayFeedback by remember { mutableStateOf(0.4f) }
+    var delayMix by remember { mutableStateOf(0.3f) }
+
+    var chorusEnabled by remember { mutableStateOf(false) }
+    var chorusRate by remember { mutableStateOf(0.25f) }
+    var chorusDepth by remember { mutableStateOf(0.3f) }
+    var chorusMix by remember { mutableStateOf(0.25f) }
+
+    var reverbEnabled by remember { mutableStateOf(false) }
+    var reverbSize by remember { mutableStateOf(0.6f) }
+    var reverbDamping by remember { mutableStateOf(0.35f) }
+    var reverbMix by remember { mutableStateOf(0.4f) }
     
     var selectedTab by remember { mutableStateOf(0) }
     
@@ -131,6 +146,11 @@ fun SynthUI(synthEngine: SynthEngine) {
                 selected = selectedTab == 4,
                 onClick = { selectedTab = 4 },
                 text = { Text("LFO", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 5,
+                onClick = { selectedTab = 5 },
+                text = { Text("FX", fontWeight = FontWeight.Bold) }
             )
         }
         
@@ -220,6 +240,68 @@ fun SynthUI(synthEngine: SynthEngine) {
                     onAmountChange = { 
                         lfoAmount = it
                         synthEngine.setLFOAmount(it)
+                    }
+                )
+                                5 -> EffectsTab(
+                    delayEnabled = delayEnabled,
+                    delayTime = delayTime,
+                    delayFeedback = delayFeedback,
+                    delayMix = delayMix,
+                    onDelayEnabledChange = {
+                        delayEnabled = it
+                        synthEngine.setDelayEnabled(it)
+                    },
+                    onDelayTimeChange = {
+                        delayTime = it
+                        synthEngine.setDelayTime(it)
+                    },
+                    onDelayFeedbackChange = {
+                        delayFeedback = it
+                        synthEngine.setDelayFeedback(it)
+                    },
+                    onDelayMixChange = {
+                        delayMix = it
+                        synthEngine.setDelayMix(it)
+                    },
+                    chorusEnabled = chorusEnabled,
+                    chorusRate = chorusRate,
+                    chorusDepth = chorusDepth,
+                    chorusMix = chorusMix,
+                    onChorusEnabledChange = {
+                        chorusEnabled = it
+                        synthEngine.setChorusEnabled(it)
+                    },
+                    onChorusRateChange = {
+                        chorusRate = it
+                        synthEngine.setChorusRate(it)
+                    },
+                    onChorusDepthChange = {
+                        chorusDepth = it
+                        synthEngine.setChorusDepth(it)
+                    },
+                    onChorusMixChange = {
+                        chorusMix = it
+                        synthEngine.setChorusMix(it)
+                    },
+                    reverbEnabled = reverbEnabled,
+                    reverbSize = reverbSize,
+                    reverbDamping = reverbDamping,
+                    reverbMix = reverbMix,
+                    onReverbEnabledChange = {
+                        reverbEnabled = it
+                        synthEngine.setReverbEnabled(it)
+                    },
+                    onReverbSizeChange = {
+                        reverbSize = it
+                        synthEngine.setReverbSize(it)
+                    },
+                    onReverbDampingChange = {
+                        reverbDamping = it
+                        synthEngine.setReverbDamping(it)
+                    },
+                    onReverbMixChange = {
+                        reverbMix = it
+                        synthEngine.setReverbMix(it)
                     }
                 )
             }
@@ -498,6 +580,173 @@ fun LFOTab(
         )
     }
 }
+
+@Composable
+fun EffectsTab(
+    delayEnabled: Boolean,
+    delayTime: Float,
+    delayFeedback: Float,
+    delayMix: Float,
+    onDelayEnabledChange: (Boolean) -> Unit,
+    onDelayTimeChange: (Float) -> Unit,
+    onDelayFeedbackChange: (Float) -> Unit,
+    onDelayMixChange: (Float) -> Unit,
+    chorusEnabled: Boolean,
+    chorusRate: Float,
+    chorusDepth: Float,
+    chorusMix: Float,
+    onChorusEnabledChange: (Boolean) -> Unit,
+    onChorusRateChange: (Float) -> Unit,
+    onChorusDepthChange: (Float) -> Unit,
+    onChorusMixChange: (Float) -> Unit,
+    reverbEnabled: Boolean,
+    reverbSize: Float,
+    reverbDamping: Float,
+    reverbMix: Float,
+    onReverbEnabledChange: (Boolean) -> Unit,
+    onReverbSizeChange: (Float) -> Unit,
+    onReverbDampingChange: (Float) -> Unit,
+    onReverbMixChange: (Float) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        EffectSection(
+            title = "Delay",
+            enabled = delayEnabled,
+            onEnabledChange = onDelayEnabledChange
+        ) {
+            ParamSlider(
+                label = "Delay Time",
+                value = delayTime,
+                onValueChange = onDelayTimeChange,
+                valueDisplay = String.format("%.0f ms", delayTime * 1000)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ParamSlider(
+                label = "Feedback",
+                value = delayFeedback,
+                onValueChange = onDelayFeedbackChange,
+                valueDisplay = String.format("%.0f%%", delayFeedback * 100)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ParamSlider(
+                label = "Wet / Dry Mix",
+                value = delayMix,
+                onValueChange = onDelayMixChange,
+                valueDisplay = String.format("%.0f%%", delayMix * 100)
+            )
+        }
+
+        EffectSection(
+            title = "Chorus",
+            enabled = chorusEnabled,
+            onEnabledChange = onChorusEnabledChange
+        ) {
+            ParamSlider(
+                label = "Rate",
+                value = chorusRate,
+                onValueChange = onChorusRateChange,
+                valueDisplay = String.format("%.2f Hz", chorusRate * 5f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ParamSlider(
+                label = "Depth",
+                value = chorusDepth,
+                onValueChange = onChorusDepthChange,
+                valueDisplay = String.format("%.0f%%", chorusDepth * 100)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ParamSlider(
+                label = "Wet / Dry Mix",
+                value = chorusMix,
+                onValueChange = onChorusMixChange,
+                valueDisplay = String.format("%.0f%%", chorusMix * 100)
+            )
+        }
+
+        EffectSection(
+            title = "Reverb",
+            enabled = reverbEnabled,
+            onEnabledChange = onReverbEnabledChange
+        ) {
+            ParamSlider(
+                label = "Room Size",
+                value = reverbSize,
+                onValueChange = onReverbSizeChange,
+                valueDisplay = String.format("%.0f%%", reverbSize * 100)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ParamSlider(
+                label = "Damping",
+                value = reverbDamping,
+                onValueChange = onReverbDampingChange,
+                valueDisplay = String.format("%.0f%%", reverbDamping * 100)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            ParamSlider(
+                label = "Wet / Dry Mix",
+                value = reverbMix,
+                onValueChange = onReverbMixChange,
+                valueDisplay = String.format("%.0f%%", reverbMix * 100)
+            )
+        }
+    }
+}
+
+@Composable
+fun EffectSection(
+    title: String,
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        tonalElevation = 2.dp,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title.uppercase(),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (enabled) "ON" else "OFF",
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Switch(
+                        checked = enabled,
+                        onCheckedChange = onEnabledChange
+                    )
+                }
+            }
+
+            content()
+        }
+    }
+}
+
 
 @Composable
 fun ParamSlider(
