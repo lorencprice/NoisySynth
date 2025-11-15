@@ -135,19 +135,19 @@ public:
         float f = 2.0f * std::sin(kPI * freq / sampleRate);
         f = std::min(f, 1.0f); // Clamp for stability
         
-        // Map resonance to feedback amount (0 to ~2.0 for self-oscillation)
-        // Higher resonance = more feedback = stronger peak
-        float fb = resonance_ * 2.0f;
+        // Map resonance to damping (inverse relationship)
+        // Low resonance = high damping (1.0) = smooth response
+        // High resonance = low damping (0.05) = strong peak
+        float damp = 1.0f - (resonance_ * 0.95f);
+        damp = std::max(0.05f, damp); // Prevent complete instability
         
-        // State variable filter equations with resonance feedback
+        // State variable filter equations
         lowpass_ += f * bandpass_;
-        highpass_ = input - lowpass_ - fb * bandpass_;
+        highpass_ = input - lowpass_ - (damp * bandpass_);
         bandpass_ += f * highpass_;
         
-        // Soft clipping to prevent instability at high resonance
-        if (resonance_ > 0.7f) {
-            lowpass_ = std::tanh(lowpass_ * 0.8f);
-        }
+        // Soft clipping to prevent runaway at high resonance
+        lowpass_ = std::tanh(lowpass_);
         
         return lowpass_;
     }
