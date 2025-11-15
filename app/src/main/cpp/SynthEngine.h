@@ -136,17 +136,19 @@ public:
         f = std::min(f, 1.0f); // Clamp for stability
         
         // Map resonance to damping (inverse relationship)
-        // Low resonance = high damping (1.0) = smooth response
-        // High resonance = low damping (0.05) = strong peak
+        // Low resonance = high damping = smooth response
+        // High resonance = low damping = strong peak
         float damp = 1.0f - (resonance_ * 0.95f);
-        damp = std::max(0.05f, damp); // Prevent complete instability
+        
+        // Clamp damping to prevent both instability AND signal kill
+        damp = std::min(1.5f, std::max(0.05f, damp));
         
         // State variable filter equations
         lowpass_ += f * bandpass_;
         highpass_ = input - lowpass_ - (damp * bandpass_);
         bandpass_ += f * highpass_;
         
-        // Soft clipping to prevent runaway at high resonance
+        // Soft clipping to prevent runaway
         lowpass_ = std::tanh(lowpass_);
         
         return lowpass_;
