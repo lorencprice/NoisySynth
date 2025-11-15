@@ -83,6 +83,41 @@ Java_com_example_noisysynth_SynthEngine_native_1setRelease(
 }
 
 JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setFilterAttack(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat attack) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setFilterAttack(static_cast<float>(attack));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setFilterDecay(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat decay) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setFilterDecay(static_cast<float>(decay));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setFilterSustain(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat sustain) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setFilterSustain(static_cast<float>(sustain));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setFilterRelease(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat release) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setFilterRelease(static_cast<float>(release));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setFilterEnvelopeAmount(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat amount) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setFilterEnvelopeAmount(static_cast<float>(amount));
+}
+
+JNIEXPORT void JNICALL
 Java_com_example_noisysynth_SynthEngine_native_1setLFORate(
     JNIEnv *env, jobject thiz, jlong engine_handle, jfloat rate) {
     auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
