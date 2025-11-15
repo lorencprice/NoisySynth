@@ -133,23 +133,27 @@ public:
         
         // Calculate filter coefficient
         float f = 2.0f * std::sin(kPI * freq / sampleRate);
-        f = std::min(f, 1.0f); // Clamp for stability
+        f = std::min(f, 0.99f); // Clamp for stability
         
-        // Map resonance to damping (inverse relationship)
-        // Low resonance = high damping = smooth response
-        // High resonance = low damping = strong peak
-        float damp = 1.0f - (resonance_ * 0.95f);
+        // Map resonance to Q (quality factor)
+        // 0% resonance = Q of 0.5 (very damped)
+        // 100% resonance = Q of 20 (very resonant)
+        float q = 0.5f + (resonance_ * 19.5f);
         
-        // Clamp damping to prevent both instability AND signal kill
-        damp = std::min(1.5f, std::max(0.05f, damp));
+        // Calculate resonance coefficient from Q
+        // res = 1 - (1 / (2 * Q))
+        float res = 1.0f - (1.0f / (2.0f * q));
+        res = std::max(0.0f, std::min(0.99f, res)); // Safety clamp
         
         // State variable filter equations
         lowpass_ += f * bandpass_;
-        highpass_ = input - lowpass_ - (damp * bandpass_);
+        highpass_ = input - lowpass_ - (res * bandpass_);
         bandpass_ += f * highpass_;
         
-        // Soft clipping to prevent runaway
-        lowpass_ = std::tanh(lowpass_);
+        // Light soft clipping only at very high resonance
+        if (resonance_ > 0.9f) {
+            lowpass_ = std::tanh(lowpass_ * 1.2f) / 1.2f;
+        }
         
         return lowpass_;
     }
