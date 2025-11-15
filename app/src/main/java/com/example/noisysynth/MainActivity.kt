@@ -4,8 +4,9 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -63,31 +64,50 @@ fun SynthUI(synthEngine: SynthEngine) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // Title
         Text(
             text = "Noisy Synth",
-            fontSize = 32.sp,
+            fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 20.dp)
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(vertical = 12.dp)
         )
+        
+        // Keyboard at TOP for easy access
+        SimpleKeyboard(
+            onNoteOn = { note -> synthEngine.noteOn(note) },
+            onNoteOff = { note -> synthEngine.noteOff(note) }
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Scrollable controls
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
         
         // Oscillator Section
         SectionCard(title = "OSCILLATOR") {
             Column {
-                // Waveform selector
+                // Waveform selector - larger buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf("Sine", "Saw", "Square", "Triangle").forEachIndexed { index, name ->
+                    listOf("Sine", "Saw", "Square", "Tri").forEachIndexed { index, name ->
                         Button(
                             onClick = {
                                 waveform = index
                                 synthEngine.setWaveform(index)
                             },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = if (waveform == index) 
                                     MaterialTheme.colorScheme.primary 
@@ -95,7 +115,11 @@ fun SynthUI(synthEngine: SynthEngine) {
                                     MaterialTheme.colorScheme.surfaceVariant
                             )
                         ) {
-                            Text(name)
+                            Text(
+                                name,
+                                fontSize = 13.sp,
+                                fontWeight = if (waveform == index) FontWeight.Bold else FontWeight.Normal
+                            )
                         }
                     }
                 }
@@ -106,11 +130,8 @@ fun SynthUI(synthEngine: SynthEngine) {
         
         // Filter Section
         SectionCard(title = "FILTER") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                RotaryKnob(
+            Column {
+                ParamSlider(
                     label = "Cutoff",
                     value = filterCutoff,
                     onValueChange = { 
@@ -119,7 +140,7 @@ fun SynthUI(synthEngine: SynthEngine) {
                     }
                 )
                 
-                RotaryKnob(
+                ParamSlider(
                     label = "Resonance",
                     value = filterResonance,
                     onValueChange = { 
@@ -135,53 +156,44 @@ fun SynthUI(synthEngine: SynthEngine) {
         // Envelope Section
         SectionCard(title = "ENVELOPE (ADSR)") {
             Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    RotaryKnob(
-                        label = "Attack",
-                        value = attack,
-                        onValueChange = { 
-                            attack = it
-                            synthEngine.setAttack(it * 2.0f) // Scale to 0-2 seconds
-                        }
-                    )
-                    
-                    RotaryKnob(
-                        label = "Decay",
-                        value = decay,
-                        onValueChange = { 
-                            decay = it
-                            synthEngine.setDecay(it * 2.0f)
-                        }
-                    )
-                }
+                ParamSlider(
+                    label = "Attack",
+                    value = attack,
+                    onValueChange = { 
+                        attack = it
+                        synthEngine.setAttack(it * 2.0f) // Scale to 0-2 seconds
+                    },
+                    valueDisplay = String.format("%.2fs", attack * 2.0f)
+                )
                 
-                Spacer(modifier = Modifier.height(8.dp))
+                ParamSlider(
+                    label = "Decay",
+                    value = decay,
+                    onValueChange = { 
+                        decay = it
+                        synthEngine.setDecay(it * 2.0f)
+                    },
+                    valueDisplay = String.format("%.2fs", decay * 2.0f)
+                )
                 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    RotaryKnob(
-                        label = "Sustain",
-                        value = sustain,
-                        onValueChange = { 
-                            sustain = it
-                            synthEngine.setSustain(it)
-                        }
-                    )
-                    
-                    RotaryKnob(
-                        label = "Release",
-                        value = release,
-                        onValueChange = { 
-                            release = it
-                            synthEngine.setRelease(it * 2.0f)
-                        }
-                    )
-                }
+                ParamSlider(
+                    label = "Sustain",
+                    value = sustain,
+                    onValueChange = { 
+                        sustain = it
+                        synthEngine.setSustain(it)
+                    }
+                )
+                
+                ParamSlider(
+                    label = "Release",
+                    value = release,
+                    onValueChange = { 
+                        release = it
+                        synthEngine.setRelease(it * 2.0f)
+                    },
+                    valueDisplay = String.format("%.2fs", release * 2.0f)
+                )
             }
         }
         
@@ -189,20 +201,18 @@ fun SynthUI(synthEngine: SynthEngine) {
         
         // LFO Section
         SectionCard(title = "LFO") {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                RotaryKnob(
+            Column {
+                ParamSlider(
                     label = "Rate",
                     value = lfoRate / 10.0f, // Scale to 0-10 Hz
                     onValueChange = { 
                         lfoRate = it * 10.0f
                         synthEngine.setLFORate(lfoRate)
-                    }
+                    },
+                    valueDisplay = String.format("%.1f Hz", lfoRate)
                 )
                 
-                RotaryKnob(
+                ParamSlider(
                     label = "Amount",
                     value = lfoAmount,
                     onValueChange = { 
@@ -211,15 +221,8 @@ fun SynthUI(synthEngine: SynthEngine) {
                     }
                 )
             }
+            }
         }
-        
-        Spacer(modifier = Modifier.weight(1f))
-        
-        // Keyboard
-        SimpleKeyboard(
-            onNoteOn = { note -> synthEngine.noteOn(note) },
-            onNoteOff = { note -> synthEngine.noteOff(note) }
-        )
     }
 }
 
@@ -250,80 +253,39 @@ fun SectionCard(
 }
 
 @Composable
-fun RotaryKnob(
+fun ParamSlider(
     label: String,
     value: Float,
     onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    valueDisplay: String = String.format("%.2f", value)
 ) {
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = modifier
+        modifier = modifier.padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.Start
     ) {
-        // Knob circle
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.surface,
-                    shape = androidx.compose.foundation.shape.CircleShape
-                )
-                .pointerInput(Unit) {
-                    var centerX = 0f
-                    var centerY = 0f
-                    
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            centerX = size.width / 2f
-                            centerY = size.height / 2f
-                        },
-                        onDrag = { change, dragAmount ->
-                            change.consume()
-                            
-                            // Calculate angle from center
-                            val x = change.position.x - centerX
-                            val y = change.position.y - centerY
-                            
-                            // Vertical drag is more intuitive for knobs
-                            val delta = -dragAmount.y / 100f
-                            val newValue = (value + delta).coerceIn(0f, 1f)
-                            onValueChange(newValue)
-                        }
-                    )
-                },
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Knob indicator
-            val angle = -135f + (value * 270f) // Map 0-1 to -135 to +135 degrees
-            val radians = Math.toRadians(angle.toDouble())
-            val indicatorX = (cos(radians) * 30).toFloat()
-            val indicatorY = (sin(radians) * 30).toFloat()
-            
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .offset(x = indicatorX.dp, y = indicatorY.dp)
-                    .background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = androidx.compose.foundation.shape.CircleShape
-                    )
+            Text(
+                text = label,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = valueDisplay,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        // Label
-        Text(
-            text = label,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-        
-        // Value display
-        Text(
-            text = String.format("%.2f", value),
-            fontSize = 10.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            valueRange = 0f..1f
         )
     }
 }
@@ -340,33 +302,46 @@ fun SimpleKeyboard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(100.dp)
+            .height(120.dp)
             .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         notes.forEachIndexed { index, note ->
-            Button(
-                onClick = { },
+            var isPressed by remember { mutableStateOf(false) }
+            
+            Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
                     .padding(horizontal = 2.dp)
+                    .background(
+                        color = if (isPressed) 
+                            MaterialTheme.colorScheme.primary 
+                        else 
+                            MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(8.dp)
+                    )
                     .pointerInput(note) {
-                        detectDragGestures(
-                            onDragStart = { onNoteOn(note) },
-                            onDragEnd = { onNoteOff(note) },
-                            onDragCancel = { onNoteOff(note) },
-                            onDrag = { _, _ -> }
+                        detectTapGestures(
+                            onPress = {
+                                isPressed = true
+                                onNoteOn(note)
+                                tryAwaitRelease()
+                                isPressed = false
+                                onNoteOff(note)
+                            }
                         )
                     },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+                contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = noteNames[index],
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isPressed)
+                        MaterialTheme.colorScheme.onPrimary
+                    else
+                        MaterialTheme.colorScheme.onPrimaryContainer
                 )
             }
         }
