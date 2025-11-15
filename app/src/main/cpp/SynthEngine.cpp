@@ -49,6 +49,9 @@ SynthEngine::SynthEngine()
         LOGE("Failed to create stream. Error: %s", oboe::convertToText(result));
         return;
     }
+
+    
+    initializeEffects(stream_->getSampleRate());
     
     LOGD("Stream created: SR=%d, BufferSize=%d",
          stream_->getSampleRate(),
@@ -98,6 +101,13 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         if (activeVoices > 0) {
             sample /= std::sqrt(static_cast<float>(activeVoices));
         }
+
+        
+        // Apply modulation effects
+        sample = processChorus(sample, sampleRate);
+        sample = processDelay(sample, sampleRate);
+        sample = processReverb(sample, sampleRate);
+
         
         // Soft clipping / saturation
         sample = std::tanh(sample * 0.7f);
@@ -298,6 +308,145 @@ void SynthEngine::setReverbDamping(float damping) {
 void SynthEngine::setReverbMix(float mix) {
     reverbMix_ = std::max(0.0f, std::min(1.0f, mix));
 }
+
+float SynthEngine::processDelay(float input, float sampleRate) {
+    if (!delayEnabled_ || delayBuffer_.empty()) {
+        return input;
+    }
+
+    size_t delaySamples = static_cast<size_t>(delayTime_ * sampleRate);
+    delaySamples = std::max<size_t>(1, std::min(delaySamples, delayBufferSize_ - 1));
+
+    size_t readIndex = (delayWriteIndex_ + delayBufferSize_ - delaySamples) % delayBufferSize_;
+    float delayed = delayBuffer_[readIndex];
+
+    float feedbackSample = input + delayed * delayFeedback_;
+    delayBuffer_[delayWriteIndex_] = feedbackSample;
+
+    delayWriteIndex_++;
+    if (delayWriteIndex_ >= delayBufferSize_) {
+        delayWriteIndex_ = 0;
+    }
+
+    return input * (1.0f - delayMix_) + delayed * delayMix_;
+}
+
+float SynthEngine::processChorus(float input, float sampleRate) {
+    if (!chorusEnabled_ || chorusBuffer_.empty()) {
+        return input;
+    }
+
+    float mod1 = std::sin(2.0f * kPI * chorusPhase1_);
+    float mod2 = std::sin(2.0f * kPI * chorusPhase2_);
+
+    float baseDelayMs = 12.0f;
+    float depthMs = 8.0f * chorusDepth_;
+
+    auto readChorus = [&](float mod) {
+        float delayMs = baseDelayMs + depthMs * mod;
+        float delaySamples = delayMs * sampleRate / 1000.0f;
+        delaySamples = std::max(1.0f, std::min(delaySamples, static_cast<float>(chorusBufferSize_ - 1)));
+
+        float readPos = static_cast<float>(chorusWriteIndex_) - delaySamples;
+        while (readPos < 0.0f) {
+            readPos += static_cast<float>(chorusBufferSize_);
+        }
+
+        size_t indexA = static_cast<size_t>(readPos) % chorusBufferSize_;
+        size_t indexB = (indexA + 1) % chorusBufferSize_;
+        float frac = readPos - std::floor(readPos);
+
+        return chorusBuffer_[indexA] * (1.0f - frac) + chorusBuffer_[indexB] * frac;
+    };
+
+    float delayed1 = readChorus(mod1);
+    float delayed2 = readChorus(mod2);
+    float wet = 0.5f * (delayed1 + delayed2);
+
+    chorusBuffer_[chorusWriteIndex_] = input;
+    chorusWriteIndex_++;
+    if (chorusWriteIndex_ >= chorusBufferSize_) {
+        chorusWriteIndex_ = 0;
+    }
+
+    chorusPhase1_ += chorusRate_ / sampleRate;
+    chorusPhase2_ += chorusRate_ / sampleRate;
+    if (chorusPhase1_ >= 1.0f) chorusPhase1_ -= 1.0f;
+    if (chorusPhase2_ >= 1.0f) chorusPhase2_ -= 1.0f;
+
+    return input * (1.0f - chorusMix_) + wet * chorusMix_;
+}
+
+float SynthEngine::processReverb(float input, float sampleRate) {
+    if (!reverbEnabled_ || reverbCombs_.empty() || reverbAllpasses_.empty()) {
+        return input;
+    }
+
+    float sizeScale = 0.3f + 0.7f * reverbSize_;
+    float damp = 0.2f + 0.75f * reverbDamping_;
+    float feedback = 0.7f * sizeScale;
+
+    float combSum = 0.0f;
+    for (auto& comb : reverbCombs_) {
+        float delayed = comb.buffer[comb.index];
+        comb.filterStore = delayed * (1.0f - damp) + comb.filterStore * damp;
+        comb.buffer[comb.index] = input + comb.filterStore * feedback;
+
+        comb.index++;
+        if (comb.index >= comb.buffer.size()) {
+            comb.index = 0;
+        }
+
+        combSum += delayed;
+    }
+
+    float wet = combSum / static_cast<float>(reverbCombs_.size());
+
+    for (auto& allpass : reverbAllpasses_) {
+        float bufOut = allpass.buffer[allpass.index];
+        float y = -wet + bufOut;
+        allpass.buffer[allpass.index] = wet + bufOut * 0.5f;
+
+        allpass.index++;
+        if (allpass.index >= allpass.buffer.size()) {
+            allpass.index = 0;
+        }
+
+        wet = y;
+    }
+
+    return input * (1.0f - reverbMix_) + wet * reverbMix_;
+}
+
+void SynthEngine::initializeEffects(float sampleRate) {
+    delayBufferSize_ = static_cast<size_t>(sampleRate * 2.0f);
+    delayBuffer_.assign(delayBufferSize_, 0.0f);
+    delayWriteIndex_ = 0;
+
+    chorusBufferSize_ = static_cast<size_t>(sampleRate * 2.0f);
+    chorusBuffer_.assign(chorusBufferSize_, 0.0f);
+    chorusWriteIndex_ = 0;
+    chorusPhase1_ = 0.0f;
+    chorusPhase2_ = 0.25f;
+
+    reverbCombs_.clear();
+    reverbAllpasses_.clear();
+
+    std::vector<float> combTimes = {0.0297f, 0.0371f, 0.0411f, 0.0437f};
+    for (float time : combTimes) {
+        size_t length = static_cast<size_t>(time * sampleRate);
+        length = std::max<size_t>(1, length);
+        reverbCombs_.push_back({std::vector<float>(length, 0.0f), 0, 0.0f});
+    }
+
+    std::vector<float> allpassTimes = {0.005f, 0.0017f};
+    for (float time : allpassTimes) {
+        size_t length = static_cast<size_t>(time * sampleRate);
+        length = std::max<size_t>(1, length);
+        reverbAllpasses_.push_back({std::vector<float>(length, 0.0f), 0});
+    }
+}
+
 
 Voice* SynthEngine::findFreeVoice() {
     // First, try to find a completely inactive voice (not playing any note)
