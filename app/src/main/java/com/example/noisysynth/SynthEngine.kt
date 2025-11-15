@@ -29,6 +29,18 @@ class SynthEngine {
     private external fun native_setFilterEnvelopeAmount(engineHandle: Long, amount: Float)
     private external fun native_setLFORate(engineHandle: Long, rate: Float)
     private external fun native_setLFOAmount(engineHandle: Long, amount: Float)
+    private external fun native_setDelayEnabled(engineHandle: Long, enabled: Boolean)
+    private external fun native_setDelayTime(engineHandle: Long, time: Float)
+    private external fun native_setDelayFeedback(engineHandle: Long, feedback: Float)
+    private external fun native_setDelayMix(engineHandle: Long, mix: Float)
+    private external fun native_setChorusEnabled(engineHandle: Long, enabled: Boolean)
+    private external fun native_setChorusRate(engineHandle: Long, rate: Float)
+    private external fun native_setChorusDepth(engineHandle: Long, depth: Float)
+    private external fun native_setChorusMix(engineHandle: Long, mix: Float)
+    private external fun native_setReverbEnabled(engineHandle: Long, enabled: Boolean)
+    private external fun native_setReverbSize(engineHandle: Long, size: Float)
+    private external fun native_setReverbDamping(engineHandle: Long, damping: Float)
+    private external fun native_setReverbMix(engineHandle: Long, mix: Float)
     
     private val engineHandle: Long = create()
     
@@ -94,6 +106,55 @@ class SynthEngine {
     
     fun setLFOAmount(amount: Float) {
         native_setLFOAmount(engineHandle, amount)
+    }
+
+    
+    fun setDelayEnabled(enabled: Boolean) {
+        native_setDelayEnabled(engineHandle, enabled)
+    }
+
+    fun setDelayTime(time: Float) {
+        native_setDelayTime(engineHandle, time)
+    }
+
+    fun setDelayFeedback(feedback: Float) {
+        native_setDelayFeedback(engineHandle, feedback)
+    }
+
+    fun setDelayMix(mix: Float) {
+        native_setDelayMix(engineHandle, mix)
+    }
+
+    fun setChorusEnabled(enabled: Boolean) {
+        native_setChorusEnabled(engineHandle, enabled)
+    }
+
+    fun setChorusRate(rate: Float) {
+        native_setChorusRate(engineHandle, rate)
+    }
+
+    fun setChorusDepth(depth: Float) {
+        native_setChorusDepth(engineHandle, depth)
+    }
+
+    fun setChorusMix(mix: Float) {
+        native_setChorusMix(engineHandle, mix)
+    }
+
+    fun setReverbEnabled(enabled: Boolean) {
+        native_setReverbEnabled(engineHandle, enabled)
+    }
+
+    fun setReverbSize(size: Float) {
+        native_setReverbSize(engineHandle, size)
+    }
+
+    fun setReverbDamping(damping: Float) {
+        native_setReverbDamping(engineHandle, damping)
+    }
+
+    fun setReverbMix(mix: Float) {
+        native_setReverbMix(engineHandle, mix)
     }
     
     fun delete() {
