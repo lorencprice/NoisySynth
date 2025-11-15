@@ -47,13 +47,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun SynthUI(synthEngine: SynthEngine) {
-    var waveform by remember { mutableStateOf(0) } // 0=sine, 1=saw, 2=square, 3=triangle
+    var waveform by remember { mutableStateOf(0) }
     var filterCutoff by remember { mutableStateOf(0.5f) }
     var filterResonance by remember { mutableStateOf(0.3f) }
     var attack by remember { mutableStateOf(0.01f) }
     var decay by remember { mutableStateOf(0.1f) }
     var sustain by remember { mutableStateOf(0.7f) }
     var release by remember { mutableStateOf(0.3f) }
+    var filterAttack by remember { mutableStateOf(0.01f) }
+    var filterDecay by remember { mutableStateOf(0.2f) }
+    var filterSustain by remember { mutableStateOf(0.5f) }
+    var filterRelease by remember { mutableStateOf(0.3f) }
+    var filterEnvAmount by remember { mutableStateOf(0.5f) }
     var lfoRate by remember { mutableStateOf(2.0f) }
     var lfoAmount by remember { mutableStateOf(0.0f) }
     
@@ -96,10 +101,11 @@ fun SynthUI(synthEngine: SynthEngine) {
         }
         
         // Tab Row
-        TabRow(
+        ScrollableTabRow(
             selectedTabIndex = selectedTab,
             containerColor = MaterialTheme.colorScheme.surface,
-            contentColor = MaterialTheme.colorScheme.primary
+            contentColor = MaterialTheme.colorScheme.primary,
+            edgePadding = 0.dp
         ) {
             Tab(
                 selected = selectedTab == 0,
@@ -114,11 +120,16 @@ fun SynthUI(synthEngine: SynthEngine) {
             Tab(
                 selected = selectedTab == 2,
                 onClick = { selectedTab = 2 },
-                text = { Text("ENV", fontWeight = FontWeight.Bold) }
+                text = { Text("AMP ENV", fontWeight = FontWeight.Bold) }
             )
             Tab(
                 selected = selectedTab == 3,
                 onClick = { selectedTab = 3 },
+                text = { Text("FILT ENV", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 4,
+                onClick = { selectedTab = 4 },
                 text = { Text("LFO", fontWeight = FontWeight.Bold) }
             )
         }
@@ -169,9 +180,37 @@ fun SynthUI(synthEngine: SynthEngine) {
                     onReleaseChange = { 
                         release = it
                         synthEngine.setRelease(it * 2.0f)
+                    },
+                    title = "AMPLITUDE ENVELOPE (ADSR)"
+                )
+                3 -> FilterEnvelopeTab(
+                    attack = filterAttack,
+                    decay = filterDecay,
+                    sustain = filterSustain,
+                    release = filterRelease,
+                    amount = filterEnvAmount,
+                    onAttackChange = {
+                        filterAttack = it
+                        synthEngine.setFilterAttack(it * 2.0f)
+                    },
+                    onDecayChange = {
+                        filterDecay = it
+                        synthEngine.setFilterDecay(it * 2.0f)
+                    },
+                    onSustainChange = {
+                        filterSustain = it
+                        synthEngine.setFilterSustain(it)
+                    },
+                    onReleaseChange = {
+                        filterRelease = it
+                        synthEngine.setFilterRelease(it * 2.0f)
+                    },
+                    onAmountChange = {
+                        filterEnvAmount = it
+                        synthEngine.setFilterEnvelopeAmount(it)
                     }
                 )
-                3 -> LFOTab(
+                4 -> LFOTab(
                     rate = lfoRate,
                     amount = lfoAmount,
                     onRateChange = { 
@@ -258,7 +297,7 @@ fun FilterTab(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "FILTER",
+            text = "FILTER (SVF LOWPASS)",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -293,7 +332,8 @@ fun EnvelopeTab(
     onAttackChange: (Float) -> Unit,
     onDecayChange: (Float) -> Unit,
     onSustainChange: (Float) -> Unit,
-    onReleaseChange: (Float) -> Unit
+    onReleaseChange: (Float) -> Unit,
+    title: String = "ENVELOPE (ADSR)"
 ) {
     Column(
         modifier = Modifier
@@ -302,7 +342,7 @@ fun EnvelopeTab(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "ENVELOPE (ADSR)",
+            text = title,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -347,6 +387,79 @@ fun EnvelopeTab(
 }
 
 @Composable
+fun FilterEnvelopeTab(
+    attack: Float,
+    decay: Float,
+    sustain: Float,
+    release: Float,
+    amount: Float,
+    onAttackChange: (Float) -> Unit,
+    onDecayChange: (Float) -> Unit,
+    onSustainChange: (Float) -> Unit,
+    onReleaseChange: (Float) -> Unit,
+    onAmountChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 20.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "FILTER ENVELOPE",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 20.dp)
+        )
+        
+        ParamSlider(
+            label = "Envelope Amount",
+            value = amount,
+            onValueChange = onAmountChange,
+            valueDisplay = String.format("%.0f%%", amount * 100)
+        )
+        
+        Spacer(modifier = Modifier.height(20.dp))
+        
+        ParamSlider(
+            label = "Attack",
+            value = attack,
+            onValueChange = onAttackChange,
+            valueDisplay = String.format("%.2fs", attack * 2.0f)
+        )
+        
+        Spacer(modifier = Modifier.height(14.dp))
+        
+        ParamSlider(
+            label = "Decay",
+            value = decay,
+            onValueChange = onDecayChange,
+            valueDisplay = String.format("%.2fs", decay * 2.0f)
+        )
+        
+        Spacer(modifier = Modifier.height(14.dp))
+        
+        ParamSlider(
+            label = "Sustain",
+            value = sustain,
+            onValueChange = onSustainChange,
+            valueDisplay = String.format("%.0f%%", sustain * 100)
+        )
+        
+        Spacer(modifier = Modifier.height(14.dp))
+        
+        ParamSlider(
+            label = "Release",
+            value = release,
+            onValueChange = onReleaseChange,
+            valueDisplay = String.format("%.2fs", release * 2.0f)
+        )
+    }
+}
+
+@Composable
 fun LFOTab(
     rate: Float,
     amount: Float,
@@ -360,7 +473,7 @@ fun LFOTab(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "LFO (Low Frequency Oscillator)",
+            text = "LFO → FILTER",
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
@@ -369,7 +482,7 @@ fun LFOTab(
         )
         
         ParamSlider(
-            label = "Rate",
+            label = "LFO Rate",
             value = rate / 10.0f,
             onValueChange = onRateChange,
             valueDisplay = String.format("%.1f Hz", rate)
@@ -383,37 +496,6 @@ fun LFOTab(
             onValueChange = onAmountChange,
             valueDisplay = String.format("%.0f%%", amount * 100)
         )
-    }
-}
-
-@Composable
-fun SectionCard(
-    title: String,
-    content: @Composable () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
-        ),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
-        ) {
-            Text(
-                text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-            content()
-        }
     }
 }
 
@@ -468,8 +550,7 @@ fun SimpleKeyboard(
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit
 ) {
-    // Simple one-octave keyboard (C4 to C5)
-    val notes = listOf(60, 62, 64, 65, 67, 69, 71, 72) // MIDI notes: C, D, E, F, G, A, B, C
+    val notes = listOf(60, 62, 64, 65, 67, 69, 71, 72)
     val noteNames = listOf("C", "D", "E", "F", "G", "A", "B", "C")
     
     Row(
