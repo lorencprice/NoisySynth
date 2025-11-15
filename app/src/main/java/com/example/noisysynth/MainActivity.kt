@@ -6,7 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,10 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.noisysynth.ui.theme.NoisySynthTheme
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
     private lateinit var synthEngine: SynthEngine
@@ -65,62 +63,82 @@ fun SynthUI(synthEngine: SynthEngine) {
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Title
-        Text(
-            text = "Noisy Synth",
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(vertical = 12.dp)
-        )
+        // Fixed Header with Title and Keyboard
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Title
+                Text(
+                    text = "NOISY SYNTH",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    letterSpacing = 2.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                // Keyboard
+                SimpleKeyboard(
+                    onNoteOn = { note -> synthEngine.noteOn(note) },
+                    onNoteOff = { note -> synthEngine.noteOff(note) }
+                )
+            }
+        }
         
-        // Keyboard at TOP for easy access
-        SimpleKeyboard(
-            onNoteOn = { note -> synthEngine.noteOn(note) },
-            onNoteOff = { note -> synthEngine.noteOff(note) }
-        )
-        
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Scrollable controls
+        // Scrollable Controls Section
         Column(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
         
         // Oscillator Section
         SectionCard(title = "OSCILLATOR") {
-            Column {
-                // Waveform selector - larger buttons
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    listOf("Sine", "Saw", "Square", "Tri").forEachIndexed { index, name ->
-                        Button(
-                            onClick = {
-                                waveform = index
-                                synthEngine.setWaveform(index)
-                            },
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (waveform == index) 
-                                    MaterialTheme.colorScheme.primary 
-                                else 
-                                    MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Text(
-                                name,
-                                fontSize = 13.sp,
-                                fontWeight = if (waveform == index) FontWeight.Bold else FontWeight.Normal
-                            )
-                        }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Sine", "Saw", "Square", "Tri").forEachIndexed { index, name ->
+                    Button(
+                        onClick = {
+                            waveform = index
+                            synthEngine.setWaveform(index)
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(52.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (waveform == index) 
+                                MaterialTheme.colorScheme.primary 
+                            else 
+                                MaterialTheme.colorScheme.surface
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = if (waveform == index) 4.dp else 0.dp
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            name,
+                            fontSize = 14.sp,
+                            fontWeight = if (waveform == index) FontWeight.Bold else FontWeight.Medium,
+                            color = if (waveform == index)
+                                MaterialTheme.colorScheme.onPrimary
+                            else
+                                MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
             }
@@ -221,7 +239,10 @@ fun SynthUI(synthEngine: SynthEngine) {
                     }
                 )
             }
-            }
+        }
+        
+        // Bottom spacer to ensure last item is fully visible when scrolling
+        Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -234,18 +255,23 @@ fun SectionCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = 2.dp
+        ),
+        shape = RoundedCornerShape(16.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(20.dp)
         ) {
             Text(
                 text = title,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 12.dp)
+                letterSpacing = 1.5.sp,
+                modifier = Modifier.padding(bottom = 16.dp)
             )
             content()
         }
@@ -261,23 +287,26 @@ fun ParamSlider(
     valueDisplay: String = String.format("%.2f", value)
 ) {
     Column(
-        modifier = modifier.padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.Start
+        modifier = modifier.padding(vertical = 4.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = label,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = valueDisplay,
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
             )
         }
         
@@ -285,7 +314,12 @@ fun ParamSlider(
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.fillMaxWidth(),
-            valueRange = 0f..1f
+            valueRange = 0f..1f,
+            colors = SliderDefaults.colors(
+                thumbColor = MaterialTheme.colorScheme.primary,
+                activeTrackColor = MaterialTheme.colorScheme.primary,
+                inactiveTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
+            )
         )
     }
 }
@@ -302,9 +336,9 @@ fun SimpleKeyboard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(120.dp)
+            .height(100.dp)
             .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         notes.forEachIndexed { index, note ->
             var isPressed by remember { mutableStateOf(false) }
@@ -313,13 +347,12 @@ fun SimpleKeyboard(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(horizontal = 2.dp)
                     .background(
                         color = if (isPressed) 
                             MaterialTheme.colorScheme.primary 
                         else 
                             MaterialTheme.colorScheme.primaryContainer,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(12.dp)
                     )
                     .pointerInput(note) {
                         detectTapGestures(
@@ -334,15 +367,26 @@ fun SimpleKeyboard(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = noteNames[index],
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isPressed)
-                        MaterialTheme.colorScheme.onPrimary
-                    else
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = noteNames[index],
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isPressed)
+                            MaterialTheme.colorScheme.onPrimary
+                        else
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    if (isPressed) {
+                        Text(
+                            text = "●",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                }
             }
         }
     }
