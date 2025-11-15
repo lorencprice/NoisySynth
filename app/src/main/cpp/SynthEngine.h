@@ -141,7 +141,7 @@ public:
         // higher values create a sharper resonance.
         constexpr float qMin = 0.707f;   // Butterworth-ish (no peak, flat)
         constexpr float qMax = 12.0f;    // Strong but controlled resonance
-        float q = qMin * std::pow(qMax / qMin, resonance_)
+        float q = qMin * std::pow(qMax / qMin, resonance_);
         
         // For SVF, damping = 1/Q
         // High Q = low damping = high resonance
