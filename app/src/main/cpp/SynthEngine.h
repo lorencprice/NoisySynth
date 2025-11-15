@@ -352,6 +352,22 @@ public:
 private:
     Voice* findFreeVoice();
     Voice* findVoiceForNote(int midiNote);
+
+    float processDelay(float input, float sampleRate);
+    float processChorus(float input, float sampleRate);
+    float processReverb(float input, float sampleRate);
+    void initializeEffects(float sampleRate);
+
+    struct CombFilter {
+        std::vector<float> buffer;
+        size_t index = 0;
+        float filterStore = 0.0f;
+    };
+
+    struct AllpassFilter {
+        std::vector<float> buffer;
+        size_t index = 0;
+    };
     
     std::shared_ptr<oboe::AudioStream> stream_;
     std::vector<Voice> voices_;
@@ -372,14 +388,24 @@ private:
     float delayTime_;
     float delayFeedback_;
     float delayMix_;
+    std::vector<float> delayBuffer_;
+    size_t delayBufferSize_ = 0;
+    size_t delayWriteIndex_ = 0;
     bool chorusEnabled_;
     float chorusRate_;
     float chorusDepth_;
     float chorusMix_;
+    std::vector<float> chorusBuffer_;
+    size_t chorusBufferSize_ = 0;
+    size_t chorusWriteIndex_ = 0;
+    float chorusPhase1_ = 0.0f;
+    float chorusPhase2_ = 0.25f; // Offset second voice
     bool reverbEnabled_;
     float reverbSize_;
     float reverbDamping_;
     float reverbMix_;
+    std::vector<CombFilter> reverbCombs_;
+    std::vector<AllpassFilter> reverbAllpasses_;
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
