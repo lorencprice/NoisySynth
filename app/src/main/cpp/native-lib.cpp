@@ -131,4 +131,88 @@ Java_com_example_noisysynth_SynthEngine_native_1setLFOAmount(
     engine->setLFOAmount(static_cast<float>(amount));
 }
 
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setDelayEnabled(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jboolean enabled) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setDelayEnabled(static_cast<bool>(enabled));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setDelayTime(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat time) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setDelayTime(static_cast<float>(time));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setDelayFeedback(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat feedback) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setDelayFeedback(static_cast<float>(feedback));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setDelayMix(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat mix) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setDelayMix(static_cast<float>(mix));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setChorusEnabled(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jboolean enabled) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setChorusEnabled(static_cast<bool>(enabled));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setChorusRate(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat rate) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setChorusRate(static_cast<float>(rate));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setChorusDepth(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat depth) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setChorusDepth(static_cast<float>(depth));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setChorusMix(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat mix) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setChorusMix(static_cast<float>(mix));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setReverbEnabled(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jboolean enabled) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setReverbEnabled(static_cast<bool>(enabled));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setReverbSize(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat size) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setReverbSize(static_cast<float>(size));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setReverbDamping(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat damping) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setReverbDamping(static_cast<float>(damping));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setReverbMix(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat mix) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setReverbMix(static_cast<float>(mix));
+}
+
 } // extern "C"
