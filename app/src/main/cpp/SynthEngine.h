@@ -131,21 +131,23 @@ public:
         // Exponential mapping for more musical control
         float freq = minFreq * std::pow(maxFreq / minFreq, modulatedCutoff);
         
-        // Calculate filter coefficient (using tan approximation for efficiency)
+        // Calculate filter coefficient
         float f = 2.0f * std::sin(kPI * freq / sampleRate);
         f = std::min(f, 1.0f); // Clamp for stability
         
-        // Map resonance to Q (quality factor)
-        // Higher resonance = lower damping
-        float q = 1.0f - resonance_ * 0.95f; // Prevent instability
+        // Map resonance to feedback amount (0 to ~2.0 for self-oscillation)
+        // Higher resonance = more feedback = stronger peak
+        float fb = resonance_ * 2.0f;
         
-        // State variable filter equations
+        // State variable filter equations with resonance feedback
         lowpass_ += f * bandpass_;
-        highpass_ = input - lowpass_ - q * bandpass_;
+        highpass_ = input - lowpass_ - fb * bandpass_;
         bandpass_ += f * highpass_;
         
         // Soft clipping to prevent instability at high resonance
-        lowpass_ = std::tanh(lowpass_);
+        if (resonance_ > 0.7f) {
+            lowpass_ = std::tanh(lowpass_ * 0.8f);
+        }
         
         return lowpass_;
     }
