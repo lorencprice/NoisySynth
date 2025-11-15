@@ -12,7 +12,12 @@ SynthEngine::SynthEngine()
       attack_(0.01f),
       decay_(0.1f),
       sustain_(0.7f),
-      release_(0.3f) {
+      release_(0.3f),
+      filterAttack_(0.01f),
+      filterDecay_(0.2f),
+      filterSustain_(0.5f),
+      filterRelease_(0.3f),
+      filterEnvAmount_(0.5f) {
     
     // Initialize voices
     voices_.resize(kMaxVoices);
@@ -69,14 +74,24 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         float lfoValue = lfo_.process(sampleRate);
         
         // Mix all active voices
+        int activeVoices = 0;
         for (auto& voice : voices_) {
-            if (voice.isActive() || voice.getEnvelope().isActive()) {
+            if (voice.isNoteActive()) {
                 sample += voice.process(sampleRate, lfoValue);
+                activeVoices++;
             }
         }
         
-        // Simple limiting to prevent clipping
-        sample = std::max(-1.0f, std::min(1.0f, sample * 0.3f));
+        // Normalize by active voice count to prevent clipping
+        if (activeVoices > 0) {
+            sample /= std::sqrt(static_cast<float>(activeVoices));
+        }
+        
+        // Soft clipping / saturation
+        sample = std::tanh(sample * 0.7f);
+        
+        // Final limiting
+        sample = std::max(-1.0f, std::min(1.0f, sample));
         
         outputBuffer[i] = sample;
     }
@@ -85,16 +100,44 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
 }
 
 void SynthEngine::noteOn(int midiNote) {
+    // First check if this note is already playing - if so, retrigger it
+    Voice* existingVoice = findVoiceForNote(midiNote);
+    if (existingVoice) {
+        // Retrigger the existing voice
+        existingVoice->noteOn(midiNote, currentWaveform_);
+        existingVoice->getAmpEnvelope().setAttack(attack_);
+        existingVoice->getAmpEnvelope().setDecay(decay_);
+        existingVoice->getAmpEnvelope().setSustain(sustain_);
+        existingVoice->getAmpEnvelope().setRelease(release_);
+        existingVoice->getFilterEnvelope().setAttack(filterAttack_);
+        existingVoice->getFilterEnvelope().setDecay(filterDecay_);
+        existingVoice->getFilterEnvelope().setSustain(filterSustain_);
+        existingVoice->getFilterEnvelope().setRelease(filterRelease_);
+        existingVoice->setFilterEnvelopeAmount(filterEnvAmount_);
+        existingVoice->getFilter().setCutoff(filterCutoff_);
+        existingVoice->getFilter().setResonance(filterResonance_);
+        LOGD("Note RETRIGGER: %d", midiNote);
+        return;
+    }
+    
+    // Find a free voice
     Voice* voice = findFreeVoice();
     if (voice) {
         voice->noteOn(midiNote, currentWaveform_);
-        voice->getEnvelope().setAttack(attack_);
-        voice->getEnvelope().setDecay(decay_);
-        voice->getEnvelope().setSustain(sustain_);
-        voice->getEnvelope().setRelease(release_);
+        voice->getAmpEnvelope().setAttack(attack_);
+        voice->getAmpEnvelope().setDecay(decay_);
+        voice->getAmpEnvelope().setSustain(sustain_);
+        voice->getAmpEnvelope().setRelease(release_);
+        voice->getFilterEnvelope().setAttack(filterAttack_);
+        voice->getFilterEnvelope().setDecay(filterDecay_);
+        voice->getFilterEnvelope().setSustain(filterSustain_);
+        voice->getFilterEnvelope().setRelease(filterRelease_);
+        voice->setFilterEnvelopeAmount(filterEnvAmount_);
         voice->getFilter().setCutoff(filterCutoff_);
         voice->getFilter().setResonance(filterResonance_);
         LOGD("Note ON: %d", midiNote);
+    } else {
+        LOGD("No free voice for note: %d", midiNote);
     }
 }
 
@@ -128,28 +171,63 @@ void SynthEngine::setFilterResonance(float resonance) {
 void SynthEngine::setAttack(float attack) {
     attack_ = attack;
     for (auto& voice : voices_) {
-        voice.getEnvelope().setAttack(attack);
+        voice.getAmpEnvelope().setAttack(attack);
     }
 }
 
 void SynthEngine::setDecay(float decay) {
     decay_ = decay;
     for (auto& voice : voices_) {
-        voice.getEnvelope().setDecay(decay);
+        voice.getAmpEnvelope().setDecay(decay);
     }
 }
 
 void SynthEngine::setSustain(float sustain) {
     sustain_ = sustain;
     for (auto& voice : voices_) {
-        voice.getEnvelope().setSustain(sustain);
+        voice.getAmpEnvelope().setSustain(sustain);
     }
 }
 
 void SynthEngine::setRelease(float release) {
     release_ = release;
     for (auto& voice : voices_) {
-        voice.getEnvelope().setRelease(release);
+        voice.getAmpEnvelope().setRelease(release);
+    }
+}
+
+void SynthEngine::setFilterAttack(float attack) {
+    filterAttack_ = attack;
+    for (auto& voice : voices_) {
+        voice.getFilterEnvelope().setAttack(attack);
+    }
+}
+
+void SynthEngine::setFilterDecay(float decay) {
+    filterDecay_ = decay;
+    for (auto& voice : voices_) {
+        voice.getFilterEnvelope().setDecay(decay);
+    }
+}
+
+void SynthEngine::setFilterSustain(float sustain) {
+    filterSustain_ = sustain;
+    for (auto& voice : voices_) {
+        voice.getFilterEnvelope().setSustain(sustain);
+    }
+}
+
+void SynthEngine::setFilterRelease(float release) {
+    filterRelease_ = release;
+    for (auto& voice : voices_) {
+        voice.getFilterEnvelope().setRelease(release);
+    }
+}
+
+void SynthEngine::setFilterEnvelopeAmount(float amount) {
+    filterEnvAmount_ = amount;
+    for (auto& voice : voices_) {
+        voice.setFilterEnvelopeAmount(amount);
     }
 }
 
@@ -162,9 +240,16 @@ void SynthEngine::setLFOAmount(float amount) {
 }
 
 Voice* SynthEngine::findFreeVoice() {
-    // First, try to find a completely inactive voice
+    // First, try to find a completely inactive voice (not playing any note)
     for (auto& voice : voices_) {
-        if (!voice.isActive() && !voice.getEnvelope().isActive()) {
+        if (!voice.isNoteActive() && voice.getMidiNote() == -1) {
+            return &voice;
+        }
+    }
+    
+    // Second, try to find a voice that's releasing
+    for (auto& voice : voices_) {
+        if (!voice.isActive()) {
             return &voice;
         }
     }
@@ -175,7 +260,7 @@ Voice* SynthEngine::findFreeVoice() {
 
 Voice* SynthEngine::findVoiceForNote(int midiNote) {
     for (auto& voice : voices_) {
-        if (voice.isActive() && voice.getMidiNote() == midiNote) {
+        if (voice.getMidiNote() == midiNote && voice.isNoteActive()) {
             return &voice;
         }
     }
