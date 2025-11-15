@@ -17,7 +17,19 @@ SynthEngine::SynthEngine()
       filterDecay_(0.2f),
       filterSustain_(0.5f),
       filterRelease_(0.3f),
-      filterEnvAmount_(0.5f) {
+      filterEnvAmount_(0.5f),
+      delayEnabled_(false),
+      delayTime_(0.35f),
+      delayFeedback_(0.4f),
+      delayMix_(0.3f),
+      chorusEnabled_(false),
+      chorusRate_(0.25f),
+      chorusDepth_(0.3f),
+      chorusMix_(0.25f),
+      reverbEnabled_(false),
+      reverbSize_(0.6f),
+      reverbDamping_(0.35f),
+      reverbMix_(0.4f) {
     
     // Initialize voices
     voices_.resize(kMaxVoices);
@@ -237,6 +249,54 @@ void SynthEngine::setLFORate(float rate) {
 
 void SynthEngine::setLFOAmount(float amount) {
     lfo_.setAmount(amount);
+}
+
+void SynthEngine::setDelayEnabled(bool enabled) {
+    delayEnabled_ = enabled;
+}
+
+void SynthEngine::setDelayTime(float time) {
+    delayTime_ = std::max(0.0f, time);
+}
+
+void SynthEngine::setDelayFeedback(float feedback) {
+    delayFeedback_ = std::max(0.0f, std::min(0.99f, feedback));
+}
+
+void SynthEngine::setDelayMix(float mix) {
+    delayMix_ = std::max(0.0f, std::min(1.0f, mix));
+}
+
+void SynthEngine::setChorusEnabled(bool enabled) {
+    chorusEnabled_ = enabled;
+}
+
+void SynthEngine::setChorusRate(float rate) {
+    chorusRate_ = std::max(0.0f, rate);
+}
+
+void SynthEngine::setChorusDepth(float depth) {
+    chorusDepth_ = std::max(0.0f, std::min(1.0f, depth));
+}
+
+void SynthEngine::setChorusMix(float mix) {
+    chorusMix_ = std::max(0.0f, std::min(1.0f, mix));
+}
+
+void SynthEngine::setReverbEnabled(bool enabled) {
+    reverbEnabled_ = enabled;
+}
+
+void SynthEngine::setReverbSize(float size) {
+    reverbSize_ = std::max(0.0f, std::min(1.0f, size));
+}
+
+void SynthEngine::setReverbDamping(float damping) {
+    reverbDamping_ = std::max(0.0f, std::min(1.0f, damping));
+}
+
+void SynthEngine::setReverbMix(float mix) {
+    reverbMix_ = std::max(0.0f, std::min(1.0f, mix));
 }
 
 Voice* SynthEngine::findFreeVoice() {
