@@ -5,6 +5,7 @@
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <algorithm>
 
 constexpr int kMaxVoices = 8;
 constexpr float kSampleRate = 48000.0f;
@@ -334,7 +335,20 @@ public:
     void setFilterEnvelopeAmount(float amount);
     void setLFORate(float rate);
     void setLFOAmount(float amount);
-    
+     void setDelayEnabled(bool enabled);
+    void setDelayTime(float time);
+    void setDelayFeedback(float feedback);
+    void setDelayMix(float mix);
+    void setChorusEnabled(bool enabled);
+    void setChorusRate(float rate);
+    void setChorusDepth(float depth);
+    void setChorusMix(float mix);
+    void setReverbEnabled(bool enabled);
+    void setReverbSize(float size);
+    void setReverbDamping(float damping);
+    void setReverbMix(float mix);
+
+
 private:
     Voice* findFreeVoice();
     Voice* findVoiceForNote(int midiNote);
@@ -354,6 +368,18 @@ private:
     float filterRelease_;
     float filterEnvAmount_;
     LFO lfo_;
+    bool delayEnabled_;
+    float delayTime_;
+    float delayFeedback_;
+    float delayMix_;
+    bool chorusEnabled_;
+    float chorusRate_;
+    float chorusDepth_;
+    float chorusMix_;
+    bool reverbEnabled_;
+    float reverbSize_;
+    float reverbDamping_;
+    float reverbMix_;
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
