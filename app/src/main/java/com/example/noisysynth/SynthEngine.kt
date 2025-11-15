@@ -22,6 +22,11 @@ class SynthEngine {
     private external fun native_setDecay(engineHandle: Long, decay: Float)
     private external fun native_setSustain(engineHandle: Long, sustain: Float)
     private external fun native_setRelease(engineHandle: Long, release: Float)
+    private external fun native_setFilterAttack(engineHandle: Long, attack: Float)
+    private external fun native_setFilterDecay(engineHandle: Long, decay: Float)
+    private external fun native_setFilterSustain(engineHandle: Long, sustain: Float)
+    private external fun native_setFilterRelease(engineHandle: Long, release: Float)
+    private external fun native_setFilterEnvelopeAmount(engineHandle: Long, amount: Float)
     private external fun native_setLFORate(engineHandle: Long, rate: Float)
     private external fun native_setLFOAmount(engineHandle: Long, amount: Float)
     
@@ -61,6 +66,26 @@ class SynthEngine {
     
     fun setRelease(release: Float) {
         native_setRelease(engineHandle, release)
+    }
+    
+    fun setFilterAttack(attack: Float) {
+        native_setFilterAttack(engineHandle, attack)
+    }
+    
+    fun setFilterDecay(decay: Float) {
+        native_setFilterDecay(engineHandle, decay)
+    }
+    
+    fun setFilterSustain(sustain: Float) {
+        native_setFilterSustain(engineHandle, sustain)
+    }
+    
+    fun setFilterRelease(release: Float) {
+        native_setFilterRelease(engineHandle, release)
+    }
+    
+    fun setFilterEnvelopeAmount(amount: Float) {
+        native_setFilterEnvelopeAmount(engineHandle, amount)
     }
     
     fun setLFORate(rate: Float) {
