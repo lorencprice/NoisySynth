@@ -117,7 +117,7 @@ public:
     }
     
     void setResonance(float resonance) { 
-        resonance_ = std::max(0.0f, std::min(0.99f, resonance)); 
+        resonance_ = std::max(0.0f, std::min(1.0f, resonance)); 
     }
     
     float process(float input, float sampleRate, float modulation = 0.0f) {
@@ -135,26 +135,24 @@ public:
         float f = 2.0f * std::sin(kPI * freq / sampleRate);
         f = std::min(f, 0.99f); // Clamp for stability
         
-        // Map resonance to Q (quality factor)
-        // Slider 0% = Q of 0.5 (low Q, smooth, no peak)
-        // Slider 100% = Q of 20 (high Q, strong peak)
-        float q = 0.5f + (resonance_ * 19.5f);
+     
+        // Map resonance to Q (quality factor) exponentially for a smoother,
+        // ear-friendly progression. Q values below ~0.7 flatten the peak;
+        // higher values create a sharper resonance.
+        constexpr float qMin = 0.707f;   // Butterworth-ish (no peak, flat)
+        constexpr float qMax = 12.0f;    // Strong but controlled resonance
+        float q = qMin * std::pow(qMax / qMin, resonance_)
         
         // For SVF, damping = 1/Q
         // High Q = low damping = high resonance
         // Low Q = high damping = low resonance
         float damp = 1.0f / q;
-        damp = std::max(0.025f, std::min(2.0f, damp)); // Safety clamp
+        damp = std::max(0.05f, std::min(1.4f, damp)); // Safety clamp
         
         // State variable filter equations
         lowpass_ += f * bandpass_;
         highpass_ = input - lowpass_ - (damp * bandpass_);
         bandpass_ += f * highpass_;
-        
-        // Light soft clipping only at very high resonance
-        if (resonance_ > 0.9f) {
-            lowpass_ = std::tanh(lowpass_ * 1.2f) / 1.2f;
-        }
         
         return lowpass_;
     }
