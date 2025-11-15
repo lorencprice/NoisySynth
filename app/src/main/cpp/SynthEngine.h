@@ -25,10 +25,10 @@ public:
     Envelope() : attack_(0.01f), decay_(0.1f), sustain_(0.7f), release_(0.3f),
                  phase_(Phase::IDLE), level_(0.0f), time_(0.0f) {}
     
-    void setAttack(float attack) { attack_ = attack; }
-    void setDecay(float decay) { decay_ = decay; }
-    void setSustain(float sustain) { sustain_ = sustain; }
-    void setRelease(float release) { release_ = release; }
+    void setAttack(float attack) { attack_ = std::max(0.001f, attack); }
+    void setDecay(float decay) { decay_ = std::max(0.001f, decay); }
+    void setSustain(float sustain) { sustain_ = std::max(0.0f, std::min(1.0f, sustain)); }
+    void setRelease(float release) { release_ = std::max(0.001f, release); }
     
     void noteOn() {
         phase_ = Phase::ATTACK;
@@ -36,7 +36,7 @@ public:
     }
     
     void noteOff() {
-        if (phase_ != Phase::IDLE) {
+        if (phase_ != Phase::IDLE && phase_ != Phase::RELEASE) {
             phase_ = Phase::RELEASE;
             time_ = 0.0f;
         }
@@ -70,7 +70,7 @@ public:
                 
             case Phase::RELEASE:
                 level_ = sustain_ * (1.0f - time_ / release_);
-                if (time_ >= release_ || level_ <= 0.0f) {
+                if (time_ >= release_ || level_ <= 0.0001f) {
                     phase_ = Phase::IDLE;
                     level_ = 0.0f;
                 }
@@ -105,37 +105,63 @@ private:
 };
 
 /**
- * Low-pass filter (simple one-pole)
+ * State Variable Filter (SVF) - Proper lowpass with resonance
  */
 class Filter {
 public:
-    Filter() : cutoff_(1.0f), resonance_(0.0f), buffer_(0.0f) {}
+    Filter() : cutoff_(0.5f), resonance_(0.0f), 
+               lowpass_(0.0f), bandpass_(0.0f), highpass_(0.0f) {}
     
     void setCutoff(float cutoff) { 
-        cutoff_ = std::max(0.01f, std::min(1.0f, cutoff)); 
+        cutoff_ = std::max(0.0f, std::min(1.0f, cutoff)); 
     }
     
     void setResonance(float resonance) { 
         resonance_ = std::max(0.0f, std::min(0.99f, resonance)); 
     }
     
-    float process(float input) {
-        // Simple one-pole lowpass filter
-        float coefficient = cutoff_;
-        buffer_ += coefficient * (input - buffer_);
+    float process(float input, float sampleRate, float modulation = 0.0f) {
+        // Map cutoff (0-1) to frequency (20Hz - 12kHz) with exponential scaling
+        float minFreq = 20.0f;
+        float maxFreq = 12000.0f;
         
-        // Add resonance (feedback)
-        float output = buffer_ + resonance_ * buffer_;
+        // Apply modulation to cutoff
+        float modulatedCutoff = std::max(0.0f, std::min(1.0f, cutoff_ + modulation));
         
-        return output;
+        // Exponential mapping for more musical control
+        float freq = minFreq * std::pow(maxFreq / minFreq, modulatedCutoff);
+        
+        // Calculate filter coefficient (using tan approximation for efficiency)
+        float f = 2.0f * std::sin(kPI * freq / sampleRate);
+        f = std::min(f, 1.0f); // Clamp for stability
+        
+        // Map resonance to Q (quality factor)
+        // Higher resonance = lower damping
+        float q = 1.0f - resonance_ * 0.95f; // Prevent instability
+        
+        // State variable filter equations
+        lowpass_ += f * bandpass_;
+        highpass_ = input - lowpass_ - q * bandpass_;
+        bandpass_ += f * highpass_;
+        
+        // Soft clipping to prevent instability at high resonance
+        lowpass_ = std::tanh(lowpass_);
+        
+        return lowpass_;
     }
     
-    void reset() { buffer_ = 0.0f; }
+    void reset() { 
+        lowpass_ = 0.0f;
+        bandpass_ = 0.0f;
+        highpass_ = 0.0f;
+    }
     
 private:
     float cutoff_;
     float resonance_;
-    float buffer_;
+    float lowpass_;
+    float bandpass_;
+    float highpass_;
 };
 
 /**
@@ -145,8 +171,8 @@ class LFO {
 public:
     LFO() : phase_(0.0f), rate_(2.0f), amount_(0.0f) {}
     
-    void setRate(float rate) { rate_ = rate; }
-    void setAmount(float amount) { amount_ = amount; }
+    void setRate(float rate) { rate_ = std::max(0.1f, rate); }
+    void setAmount(float amount) { amount_ = std::max(0.0f, std::min(1.0f, amount)); }
     
     float process(float sampleRate) {
         float output = std::sin(2.0f * kPI * phase_);
@@ -154,7 +180,8 @@ public:
         if (phase_ >= 1.0f) {
             phase_ -= 1.0f;
         }
-        return output * amount_;
+        // Return bipolar output scaled by amount (-amount to +amount)
+        return output * amount_ * 0.5f; // Scale down for filter modulation
     }
     
 private:
@@ -168,7 +195,7 @@ private:
  */
 class Voice {
 public:
-    Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(0),
+    Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
               waveform_(Waveform::SAWTOOTH) {}
     
     void noteOn(int midiNote, Waveform waveform) {
@@ -176,16 +203,21 @@ public:
         frequency_ = midiNoteToFrequency(midiNote);
         waveform_ = waveform;
         active_ = true;
-        envelope_.noteOn();
+        ampEnvelope_.noteOn();
+        filterEnvelope_.noteOn();
         filter_.reset();
+        phase_ = 0.0f; // Reset phase on note on
     }
     
     void noteOff() {
-        envelope_.noteOff();
+        active_ = false; // Mark as inactive immediately
+        ampEnvelope_.noteOff();
+        filterEnvelope_.noteOff();
     }
     
     float process(float sampleRate, float lfoValue) {
-        if (!active_ && !envelope_.isActive()) {
+        if (!ampEnvelope_.isActive() && !filterEnvelope_.isActive()) {
+            midiNote_ = -1; // Clear note assignment
             return 0.0f;
         }
         
@@ -198,28 +230,34 @@ public:
             phase_ -= 1.0f;
         }
         
-        // Apply envelope
-        float envValue = envelope_.process(sampleRate);
-        sample *= envValue;
+        // Get envelope values
+        float ampEnvValue = ampEnvelope_.process(sampleRate);
+        float filterEnvValue = filterEnvelope_.process(sampleRate);
         
-        // Apply filter with LFO modulation
-        // Note: We'll apply the LFO modulation in the main process loop
-        // For now, just process with current filter settings
-        sample = filter_.process(sample);
+        // Combine LFO and filter envelope for filter modulation
+        // Filter envelope gives upward modulation, LFO gives bipolar modulation
+        float filterMod = (filterEnvValue * filterEnvAmount_) + lfoValue;
         
-        // Check if voice should be deactivated
-        if (!envelope_.isActive()) {
-            active_ = false;
-        }
+        // Apply filter with modulation
+        sample = filter_.process(sample, sampleRate, filterMod);
+        
+        // Apply amplitude envelope
+        sample *= ampEnvValue;
         
         return sample;
     }
     
     bool isActive() const { return active_; }
+    bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
     
-    Envelope& getEnvelope() { return envelope_; }
+    Envelope& getAmpEnvelope() { return ampEnvelope_; }
+    Envelope& getFilterEnvelope() { return filterEnvelope_; }
     Filter& getFilter() { return filter_; }
+    
+    void setFilterEnvelopeAmount(float amount) {
+        filterEnvAmount_ = std::max(0.0f, std::min(1.0f, amount));
+    }
     
 private:
     float generateWaveform() {
@@ -252,8 +290,10 @@ private:
     bool active_;
     int midiNote_;
     Waveform waveform_;
-    Envelope envelope_;
+    Envelope ampEnvelope_;
+    Envelope filterEnvelope_;
     Filter filter_;
+    float filterEnvAmount_ = 0.5f; // Default filter envelope amount
 };
 
 /**
@@ -280,6 +320,11 @@ public:
     void setDecay(float decay);
     void setSustain(float sustain);
     void setRelease(float release);
+    void setFilterAttack(float attack);
+    void setFilterDecay(float decay);
+    void setFilterSustain(float sustain);
+    void setFilterRelease(float release);
+    void setFilterEnvelopeAmount(float amount);
     void setLFORate(float rate);
     void setLFOAmount(float amount);
     
@@ -296,6 +341,11 @@ private:
     float decay_;
     float sustain_;
     float release_;
+    float filterAttack_;
+    float filterDecay_;
+    float filterSustain_;
+    float filterRelease_;
+    float filterEnvAmount_;
     LFO lfo_;
 };
 
