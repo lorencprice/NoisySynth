@@ -31,7 +31,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **0 Hz** (off for this patch)
 - Amount: **0%**
 
-💡 **Tip:** For more "squelch," increase resonance to 90-95%. For variation, adjust filter envelope decay time.
+**Tip:** For more "squelch," increase resonance to 90-95%. For variation, adjust filter envelope decay time.
 
 ---
 
@@ -62,7 +62,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **6 Hz** (adjust to taste: 4-8 Hz typical)
 - Amount: **90%**
 
-💡 **Tip:** The LFO rate controls the "wobble speed." Try 4 Hz for quarter notes at 120 BPM, 8 Hz for eighth notes.
+**Tip:** The LFO rate controls the "wobble speed." Try 4 Hz for quarter notes at 120 BPM, 8 Hz for eighth notes.
 
 ---
 
@@ -93,7 +93,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **0.5 Hz** (very slow)
 - Amount: **25%** (subtle movement)
 
-💡 **Tip:** The slow LFO adds gentle filter movement. Hold notes and listen to the evolution.
+**Tip:** The slow LFO adds gentle filter movement. Hold notes and listen to the evolution.
 
 ---
 
@@ -124,7 +124,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **0 Hz**
 - Amount: **0%**
 
-💡 **Tip:** The filter envelope creates the "pluck" character. Try increasing resonance to 60% for a more metallic tone.
+**Tip:** The filter envelope creates the "pluck" character. Try increasing resonance to 60% for a more metallic tone.
 
 ---
 
@@ -155,7 +155,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **5.5 Hz**
 - Amount: **40%**
 
-💡 **Tip:** Play chords (hold multiple keys). The combination of LFO and resonance creates that characteristic "hover" texture.
+**Tip:** Play chords (hold multiple keys). The combination of LFO and resonance creates that characteristic "hover" texture.
 
 ---
 
@@ -217,7 +217,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **0 Hz**
 - Amount: **0%**
 
-💡 **Tip:** The filter sweeps from bright to dark with high resonance, creating the "zap" sound. Try different decay times for variety.
+**Tip:** The filter sweeps from bright to dark with high resonance, creating the "zap" sound. Try different decay times for variety.
 
 ---
 
@@ -248,7 +248,7 @@ Now that your synth has a proper filter with resonance, working LFO, and filter 
 - Rate: **3.5 Hz** (not perfectly synced)
 - Amount: **50%**
 
-💡 **Tip:** This creates an intentionally "imperfect" sound with movement. The LFO rate being slightly off-grid adds to the organic feel. At low cutoff with high resonance, you get that characteristic "broken" texture you favor in your productions.
+**Tip:** This creates an intentionally "imperfect" sound with movement. The LFO rate being slightly off-grid adds to the organic feel. At low cutoff with high resonance, you get that characteristic "broken" texture you favor in your productions.
 
 ---
 
@@ -348,4 +348,3 @@ Very fast filter attack (0.01s) with high envelope amount creates a percussive "
 
 ---
 
-Happy sound designing! The improved filter and modulation routing opens up a ton of sonic territory. Don't forget - sometimes the most interesting sounds come from "breaking" the synth with extreme settings. That's where the character lives!
