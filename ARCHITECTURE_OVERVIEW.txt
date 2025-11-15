@@ -1,0 +1,203 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                        NOISYSYNTH v2.0 ARCHITECTURE                          ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  UI LAYER (Kotlin + Compose)                                                │
+│                                                                              │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
+│  │   OSC    │  │  FILTER  │  │ AMP ENV  │  │ FILT ENV │  │   LFO    │     │
+│  │          │  │          │  │          │  │   NEW!   │  │          │     │
+│  │ Waveform │  │  Cutoff  │  │  Attack  │  │  Amount  │  │   Rate   │     │
+│  │ Selector │  │ Resonance│  │  Decay   │  │  Attack  │  │  Amount  │     │
+│  │          │  │          │  │  Sustain │  │  Decay   │  │          │     │
+│  │          │  │          │  │  Release │  │  Sustain │  │          │     │
+│  │          │  │          │  │          │  │  Release │  │          │     │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘     │
+│       │             │              │              │              │           │
+└───────┼─────────────┼──────────────┼──────────────┼──────────────┼──────────┘
+        │             │              │              │              │
+        ▼             ▼              ▼              ▼              ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  JNI BRIDGE (native-lib.cpp)                                                │
+│                                                                              │
+│  setWaveform()        setFilterCutoff()      setAttack()                    │
+│                       setFilterResonance()   setDecay()                     │
+│                                              setSustain()                   │
+│                                              setRelease()                   │
+│                                                                              │
+│                       setFilterAttack()      ← NEW!                         │
+│                       setFilterDecay()       ← NEW!                         │
+│                       setFilterSustain()     ← NEW!                         │
+│                       setFilterRelease()     ← NEW!                         │
+│                       setFilterEnvAmount()   ← NEW!                         │
+│                                                                              │
+│                       setLFORate()                                          │
+│                       setLFOAmount()                                        │
+│                                                                              │
+│  noteOn()            noteOff()                                              │
+└───────┬──────────────────────────────────────────────────────────────────┬──┘
+        │                                                                   │
+        ▼                                                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SYNTH ENGINE (C++ / Oboe)                                                  │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │  Audio Callback (Real-time Thread)                                 │    │
+│  │                                                                     │    │
+│  │  for each frame:                                                   │    │
+│  │    LFO Value = lfo_.process()        ← GLOBAL LFO                  │    │
+│  │                                                                     │    │
+│  │    for each voice:                                                 │    │
+│  │      if voice.isActive():                                          │    │
+│  │        sample += voice.process(lfoValue)                           │    │
+│  │                                                                     │    │
+│  │    sample = normalize(sample, activeVoices)  ← IMPROVED            │    │
+│  │    sample = tanh(sample)                     ← SOFT CLIPPING       │    │
+│  │    output[i] = sample                                              │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │  Voice (×8 polyphony)                                              │    │
+│  │                                                                     │    │
+│  │  float process(sampleRate, lfoValue):                              │    │
+│  │    ┌──────────────────────────────────────────────────────────┐   │    │
+│  │    │ 1. OSCILLATOR                                             │   │    │
+│  │    │    sample = generateWaveform()  ← Sine/Saw/Square/Tri    │   │    │
+│  │    │    phase += frequency / sampleRate                        │   │    │
+│  │    └──────────────────────────────────────────────────────────┘   │    │
+│  │                                                                     │    │
+│  │    ┌──────────────────────────────────────────────────────────┐   │    │
+│  │    │ 2. ENVELOPES                                              │   │    │
+│  │    │    ampEnv = ampEnvelope_.process()                        │   │    │
+│  │    │    filterEnv = filterEnvelope_.process()  ← NEW!          │   │    │
+│  │    └──────────────────────────────────────────────────────────┘   │    │
+│  │                                                                     │    │
+│  │    ┌──────────────────────────────────────────────────────────┐   │    │
+│  │    │ 3. FILTER MODULATION                                      │   │    │
+│  │    │    filterMod = (filterEnv × amount) + lfoValue  ← NEW!   │   │    │
+│  │    │                                                            │   │    │
+│  │    │    ┌─────────────────────────────────────────────┐        │   │    │
+│  │    │    │ STATE VARIABLE FILTER (NEW!)                │        │   │    │
+│  │    │    │                                              │        │   │    │
+│  │    │    │ modulatedCutoff = baseCutoff + filterMod    │        │   │    │
+│  │    │    │ freq = 20 × (12000/20)^modulatedCutoff      │        │   │    │
+│  │    │    │ f = 2 × sin(π × freq / sampleRate)          │        │   │    │
+│  │    │    │ q = 1 - resonance × 0.95                    │        │   │    │
+│  │    │    │                                              │        │   │    │
+│  │    │    │ lowpass += f × bandpass                     │        │   │    │
+│  │    │    │ highpass = input - lowpass - q × bandpass   │        │   │    │
+│  │    │    │ bandpass += f × highpass                    │        │   │    │
+│  │    │    │                                              │        │   │    │
+│  │    │    │ return tanh(lowpass)  ← soft clipping       │        │   │    │
+│  │    │    └─────────────────────────────────────────────┘        │   │    │
+│  │    │                                                            │   │    │
+│  │    │    sample = filter_.process(sample, sampleRate, filterMod)│   │    │
+│  │    └──────────────────────────────────────────────────────────┘   │    │
+│  │                                                                     │    │
+│  │    ┌──────────────────────────────────────────────────────────┐   │    │
+│  │    │ 4. AMPLITUDE                                              │   │    │
+│  │    │    sample × ampEnv                                        │   │    │
+│  │    └──────────────────────────────────────────────────────────┘   │    │
+│  │                                                                     │    │
+│  │    return sample                                                   │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │  Note Management (FIXED!)                                          │    │
+│  │                                                                     │    │
+│  │  noteOn(midiNote):                                                 │    │
+│  │    voice = findVoiceForNote(midiNote)  ← CHECK IF ALREADY PLAYING │    │
+│  │    if voice exists:                                                │    │
+│  │      voice.retrigger()  ← RETRIGGER INSTEAD OF NEW ALLOCATION     │    │
+│  │    else:                                                           │    │
+│  │      voice = findFreeVoice()                                       │    │
+│  │      voice.noteOn(midiNote)                                        │    │
+│  │                                                                     │    │
+│  │  noteOff(midiNote):                                                │    │
+│  │    voice = findVoiceForNote(midiNote)                              │    │
+│  │    voice.noteOff()  ← Triggers envelope release                   │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+└─────────────────────────────────────────────────────────────────────────────┘
+        │
+        ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  AUDIO OUTPUT (Oboe → Android Audio HAL → Speaker/Headphones)              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                              KEY IMPROVEMENTS                                ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  ✅ FIXED: Double-tap stuck notes                                           ║
+║     - Note retriggering instead of double allocation                        ║
+║     - Proper voice state tracking                                           ║
+║                                                                              ║
+║  ✅ NEW: State Variable Filter                                              ║
+║     - Exponential frequency mapping (20Hz - 12kHz)                          ║
+║     - Real resonance with Q factor                                          ║
+║     - Modulation input support                                              ║
+║                                                                              ║
+║  ✅ WORKING: LFO now routes to filter                                       ║
+║     - Bipolar modulation (-0.5 to +0.5)                                     ║
+║     - Smooth sine wave                                                      ║
+║                                                                              ║
+║  ✅ NEW: Filter Envelope                                                    ║
+║     - Full ADSR control                                                     ║
+║     - Adjustable amount (depth)                                             ║
+║     - Combines with LFO for complex modulation                              ║
+║                                                                              ║
+║  ✅ IMPROVED: Audio mixing                                                  ║
+║     - Per-voice normalization (√n scaling)                                  ║
+║     - Soft clipping (tanh saturation)                                       ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+
+SIGNAL FLOW DETAIL:
+
+  Keyboard    Waveform
+     │           │
+     ▼           ▼
+  Note On → Oscillator → SVF Filter ────────────┐
+     │           ▲           ▲                   │
+     │           │           │                   ▼
+     │       Phase      Modulation           Output
+     │                      ▲                   ▲
+     │                      │                   │
+     ▼                      │                   │
+ Amplitude            ┌─────┴─────┐       Amplitude
+ Envelope             │           │       Envelope
+     │                │           │           │
+     └────────────────┤  Filter   ├───────────┘
+                      │   Mod     │
+                      │           │
+                      └─────▲─────┘
+                            │
+                       ┌────┴────┐
+                       │         │
+                  Filter Env   LFO
+                  (new!)     (routed!)
+
+
+MODULATION MATH:
+
+  Base Cutoff = 0.30  (from slider)
+  
+  Filter Envelope:
+    - At attack peak: 1.0
+    - Amount: 0.70
+    - Contribution: 1.0 × 0.70 = 0.70
+  
+  LFO:
+    - Sine wave: -1.0 to +1.0
+    - Amount: 0.50
+    - Scaled: -0.25 to +0.25
+    - At peak: +0.25
+  
+  Total Cutoff = 0.30 + 0.70 + 0.25 = 1.25
+  Clamped to [0,1] = 1.0 (wide open)
+  
+  Frequency = 20 × (12000/20)^1.0 = 12000 Hz (bright!)
+
