@@ -420,7 +420,7 @@ fun SynthScreen(synthEngine: SynthEngine) {
                                 syncSequencerPattern(measureIndex = index)
                             }
                         )
-                    } catch (e: Exception) {
+                    }; catch (e: Exception) {
                           e.printStackTrace()
                           error = e.toString()
                     }
