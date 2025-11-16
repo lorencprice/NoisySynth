@@ -33,10 +33,12 @@ public:
     Envelope() : attack_(0.01f), decay_(0.1f), sustain_(0.7f), release_(0.3f),
                  phase_(Phase::IDLE), level_(0.0f), time_(0.0f) {}
     
-    void setAttack(float attack) { attack_ = std::max(0.001f, attack); }
-    void setDecay(float decay) { decay_ = std::max(0.001f, decay); }
+    // CRITICAL FIX: Reduce minimum attack/release times for arpeggiator/sequencer
+    // Old minimum was 0.001f (1ms), which was too restrictive
+    void setAttack(float attack) { attack_ = std::max(0.0001f, attack); }  // 0.1ms minimum
+    void setDecay(float decay) { decay_ = std::max(0.0001f, decay); }
     void setSustain(float sustain) { sustain_ = std::max(0.0f, std::min(1.0f, sustain)); }
-    void setRelease(float release) { release_ = std::max(0.001f, release); }
+    void setRelease(float release) { release_ = std::max(0.0001f, release); }  // 0.1ms minimum
     
     void noteOn() {
         phase_ = Phase::ATTACK;
