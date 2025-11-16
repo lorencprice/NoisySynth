@@ -34,10 +34,6 @@ fun SequencerTab(
     val patterns = listOf("8-STEP", "16-STEP", "POLYRYTHMIC", "RANDOM WALK")
     val noteLengthOptions = listOf("1/8", "1/4", "1/2", "1")
     val measureOptions = listOf(4, 8, 16)
-    val safePatternIndex = selectedPattern.coerceIn(0, patterns.size - 1)
-    val safeStepLengthIndex = stepLengthIndex.coerceIn(0, noteLengthOptions.size - 1)
-    val safeMeasuresIndex = measuresIndex.coerceIn(0, measureOptions.size - 1)
-
 
     Column(
         modifier = Modifier
@@ -98,7 +94,7 @@ fun SequencerTab(
                 val steps = (it * (noteLengthOptions.size - 1)).roundToInt()
                 onStepLengthChange(steps)
             },
-            valueDisplay = noteLengthOptions[safeStepLengthIndex]
+            valueDisplay = noteLengthOptions[stepLengthIndex]
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -110,7 +106,7 @@ fun SequencerTab(
                 val steps = (it * (measureOptions.size - 1)).roundToInt()
                 onMeasuresChange(steps)
             },
-            valueDisplay = String.format("%d bars", measureOptions[safeMeasuresIndex])
+            valueDisplay = String.format("%d bars", measureOptions[measuresIndex])
         )
     }
 }
