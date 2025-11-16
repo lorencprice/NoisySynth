@@ -456,7 +456,6 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
     
     float stepDuration = (60.0f / arpeggiatorRateBpm_) * arpeggiatorStepMultiplier_;
     float stepDurationSamples = stepDuration * sampleRate;
-    float timeInStep = arpSampleCounter_ / sampleRate;
 
     // Check if we need to trigger a new note
     if (!arpNoteActive_ && arpSampleCounter_ >= 0) {
