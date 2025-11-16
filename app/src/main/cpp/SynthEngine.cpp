@@ -486,8 +486,21 @@ void SynthEngine::processArpeggiator(float sampleRate) {
         arpNoteActive_ = true;
     }
 
-    float gateTime = stepDuration * arpeggiatorGate_;
-    if (arpNoteActive_ && timeInStep >= gateTime) {
+    // CRITICAL FIX: Ensure gate time respects envelope attack/release times
+    // Calculate minimum gate time based on attack duration plus small buffer
+    float minGateTime = attack_ + 0.01f;  // Attack + 10ms buffer
+    
+    // Calculate desired gate time from user parameter
+    float desiredGateTime = stepDuration * arpeggiatorGate_;
+    
+    // Use the longer of the two to ensure envelope has time to work
+    float gateTime = std::max(minGateTime, desiredGateTime);
+    
+    // Only trigger note-off if:
+    // 1. We're past the gate time
+    // 2. There's enough time before the next step for a clean transition (5ms minimum)
+    float timeUntilNextStep = stepDuration - timeInStep;
+    if (arpNoteActive_ && timeInStep >= gateTime && timeUntilNextStep > 0.005f) {
         suppressArpCapture_ = true;
         noteOff(currentArpNote_);
         suppressArpCapture_ = false;
@@ -495,6 +508,7 @@ void SynthEngine::processArpeggiator(float sampleRate) {
     }
 
     if (timeInStep >= stepDuration) {
+        // Clean up any lingering notes at step boundary
         if (arpNoteActive_) {
             suppressArpCapture_ = true;
             noteOff(currentArpNote_);
@@ -544,7 +558,17 @@ void SynthEngine::processSequencer(float sampleRate) {
         }
     }
 
-    float gateTime = stepDuration * 0.9f;
+    // CRITICAL FIX: Same envelope-aware gate timing as arpeggiator
+    // Calculate minimum gate time based on attack duration
+    float minGateTime = attack_ + 0.01f;
+    
+    // Use 90% of step duration as default gate, but respect minimum
+    float desiredGateTime = stepDuration * 0.9f;
+    float gateTime = std::max(minGateTime, desiredGateTime);
+    
+    // Ensure we don't exceed step duration
+    gateTime = std::min(gateTime, stepDuration - 0.005f);
+    
     if (sequencerNoteActive_ && timeInStep >= gateTime) {
         suppressArpCapture_ = true;
         noteOff(sequencerActiveNote_);
