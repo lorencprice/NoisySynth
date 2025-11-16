@@ -79,16 +79,56 @@ fun SynthUI(synthEngine: SynthEngine) {
     var reverbSize by remember { mutableStateOf(0.6f) }
     var reverbDamping by remember { mutableStateOf(0.35f) }
     var reverbMix by remember { mutableStateOf(0.4f) }
-    
+
+    var arpeggiatorEnabled by remember { mutableStateOf(false) }
     var arpeggiatorPattern by remember { mutableStateOf(0) }
     var arpeggiatorTempo by remember { mutableStateOf(0.5f) }
-    var arpeggiatorNoteLength by remember { mutableStateOf(0.5f) }
-    var arpeggiatorMeasures by remember { mutableStateOf(0.25f) }
+    var arpeggiatorGate by remember { mutableStateOf(0.5f) }
 
+    var sequencerEnabled by remember { mutableStateOf(false) }
     var sequencerPattern by remember { mutableStateOf(0) }
     var sequencerTempo by remember { mutableStateOf(0.45f) }
-    var sequencerNoteLength by remember { mutableStateOf(0.4f) }
-    var sequencerMeasures by remember { mutableStateOf(0.35f) }
+    var sequencerStepLengthIndex by remember { mutableStateOf(1) }
+    var sequencerMeasuresIndex by remember { mutableStateOf(0) }
+    
+    val sequencerMeasureOptions = listOf(4, 8, 16)
+
+    fun stepsPerMeasure(stepLengthIndex: Int): Int = when (stepLengthIndex) {
+        0 -> 8
+        1 -> 4
+        2 -> 2
+        else -> 1
+    }
+
+    fun syncSequencerPattern(
+        patternIndex: Int = sequencerPattern,
+        stepLengthIndexValue: Int = sequencerStepLengthIndex,
+        measureIndex: Int = sequencerMeasuresIndex
+    ) {
+        val measureCount = sequencerMeasureOptions[measureIndex]
+        val totalSteps = measureCount * stepsPerMeasure(stepLengthIndexValue)
+        val patternNotes = when (patternIndex) {
+            1 -> listOf(72, 71, 69, 67, 65, 64, 62, 60)
+            2 -> listOf(60, 64, 67, 70)
+            3 -> listOf(60, 63, 67, 70, 74)
+            else -> listOf(60, 62, 64, 65, 67, 69, 71, 72)
+        }
+        repeat(totalSteps) { idx ->
+            val note = patternNotes[idx % patternNotes.size]
+            synthEngine.setSequencerStep(idx, note, true)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        synthEngine.setArpeggiatorPattern(arpeggiatorPattern)
+        synthEngine.setArpeggiatorRate(60 + arpeggiatorTempo * 120)
+        synthEngine.setArpeggiatorGate(0.2f + arpeggiatorGate * 0.8f)
+        synthEngine.setArpeggiatorEnabled(arpeggiatorEnabled)
+        synthEngine.setSequencerStepLength(sequencerStepLengthIndex)
+        synthEngine.setSequencerMeasures(sequencerMeasureOptions[sequencerMeasuresIndex])
+        synthEngine.setSequencerTempo(55 + sequencerTempo * 135)
+        syncSequencerPattern()
+    }
     
     var selectedTab by remember { mutableStateOf(0) }
     
@@ -328,24 +368,55 @@ fun SynthUI(synthEngine: SynthEngine) {
                     }
                 )
                 6 -> ArpeggiatorTab(
+                    enabled = arpeggiatorEnabled,
                     selectedPattern = arpeggiatorPattern,
                     tempo = arpeggiatorTempo,
-                    noteLength = arpeggiatorNoteLength,
-                    measures = arpeggiatorMeasures,
-                    onPatternChange = { arpeggiatorPattern = it },
-                    onTempoChange = { arpeggiatorTempo = it },
-                    onNoteLengthChange = { arpeggiatorNoteLength = it },
-                    onMeasuresChange = { arpeggiatorMeasures = it }
+                    gate = arpeggiatorGate,
+                    onEnabledChange = {
+                        arpeggiatorEnabled = it
+                        synthEngine.setArpeggiatorEnabled(it)
+                    },
+                    onPatternChange = {
+                        arpeggiatorPattern = it
+                        synthEngine.setArpeggiatorPattern(it)
+                    },
+                    onTempoChange = {
+                        arpeggiatorTempo = it
+                        synthEngine.setArpeggiatorRate(60 + it * 120)
+                    },
+                    onGateChange = {
+                        arpeggiatorGate = it
+                        synthEngine.setArpeggiatorGate(0.2f + it * 0.8f)
+                    }
                 )
                 7 -> SequencerTab(
+                    enabled = sequencerEnabled,
                     selectedPattern = sequencerPattern,
                     tempo = sequencerTempo,
-                    noteLength = sequencerNoteLength,
-                    measures = sequencerMeasures,
-                    onPatternChange = { sequencerPattern = it },
-                    onTempoChange = { sequencerTempo = it },
-                    onNoteLengthChange = { sequencerNoteLength = it },
-                    onMeasuresChange = { sequencerMeasures = it }
+                    stepLengthIndex = sequencerStepLengthIndex,
+                    measuresIndex = sequencerMeasuresIndex,
+                    onEnabledChange = {
+                        sequencerEnabled = it
+                        synthEngine.setSequencerEnabled(it)
+                    },
+                    onPatternChange = {
+                        sequencerPattern = it
+                        syncSequencerPattern(patternIndex = it)
+                    },
+                    onTempoChange = {
+                        sequencerTempo = it
+                        synthEngine.setSequencerTempo(55 + it * 135)
+                    },
+                    onStepLengthChange = { index ->
+                        sequencerStepLengthIndex = index
+                        synthEngine.setSequencerStepLength(index)
+                        syncSequencerPattern(stepLengthIndexValue = index)
+                    },
+                    onMeasuresChange = { index ->
+                        sequencerMeasuresIndex = index
+                        synthEngine.setSequencerMeasures(sequencerMeasureOptions[index])
+                        syncSequencerPattern(measureIndex = index)
+                    }
                 )
             }
         }
@@ -743,18 +814,17 @@ fun EffectsTab(
 
 @Composable
 fun ArpeggiatorTab(
+    enabled: Boolean,
     selectedPattern: Int,
     tempo: Float,
-    noteLength: Float,
-    measures: Float,
+    gate: Float,
+    onEnabledChange: (Boolean) -> Unit,
     onPatternChange: (Int) -> Unit,
     onTempoChange: (Float) -> Unit,
-    onNoteLengthChange: (Float) -> Unit,
-    onMeasuresChange: (Float) -> Unit
+    onGateChange: (Float) -> Unit
 ) {
     val patterns = listOf("Up", "Down", "Up-Down", "Random")
-    val noteLengthOptions = listOf("1/16", "1/8", "1/4", "1/2", "1")
-    val measureOptions = (1..8).toList()
+    val gateDisplay = listOf("20%", "40%", "60%", "80%", "100%")
 
     Column(
         modifier = Modifier
@@ -770,6 +840,24 @@ fun ArpeggiatorTab(
             letterSpacing = 1.5.sp,
             modifier = Modifier.padding(bottom = 24.dp)
         )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Enabled",
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange
+            )
+        }
 
         PatternSelector(
             title = "Pattern",
@@ -790,43 +878,33 @@ fun ArpeggiatorTab(
         Spacer(modifier = Modifier.height(16.dp))
 
         ParamSlider(
-            label = "Note Length",
-            value = noteLength,
+            label = "Gate",
+            value = gate,
             onValueChange = {
-                val steps = (it * (noteLengthOptions.size - 1)).roundToInt()
-                onNoteLengthChange(steps.toFloat() / (noteLengthOptions.size - 1))
+                val steps = (it * (gateDisplay.size - 1)).roundToInt()
+                onGateChange(steps.toFloat() / (gateDisplay.size - 1))
             },
-            valueDisplay = noteLengthOptions[(noteLength * (noteLengthOptions.size - 1)).roundToInt()]
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        ParamSlider(
-            label = "Measures",
-            value = measures,
-            onValueChange = {
-                val steps = (it * (measureOptions.size - 1)).roundToInt()
-                onMeasuresChange(steps.toFloat() / (measureOptions.size - 1))
-            },
-            valueDisplay = String.format("%d bars", measureOptions[(measures * (measureOptions.size - 1)).roundToInt()])
+            valueDisplay = gateDisplay[(gate * (gateDisplay.size - 1)).roundToInt()]
         )
     }
 }
 
 @Composable
 fun SequencerTab(
+    enabled: Boolean,
     selectedPattern: Int,
     tempo: Float,
-    noteLength: Float,
-    measures: Float,
+    stepLengthIndex: Int,
+    measuresIndex: Int,
+    onEnabledChange: (Boolean) -> Unit,
     onPatternChange: (Int) -> Unit,
     onTempoChange: (Float) -> Unit,
-    onNoteLengthChange: (Float) -> Unit,
-    onMeasuresChange: (Float) -> Unit
+    onStepLengthChange: (Int) -> Unit,
+    onMeasuresChange: (Int) -> Unit
 ) {
     val patterns = listOf("8-STEP", "16-STEP", "POLYRYTHMIC", "RANDOM WALK")
-    val noteLengthOptions = listOf("1/32", "1/16", "1/8", "1/4", "1/2")
-    val measureOptions = (1..16).toList()
+    val noteLengthOptions = listOf("1/8", "1/4", "1/2", "1")
+    val measureOptions = listOf(4, 8, 16)
 
     Column(
         modifier = Modifier
@@ -842,6 +920,24 @@ fun SequencerTab(
             letterSpacing = 1.5.sp,
             modifier = Modifier.padding(bottom = 24.dp)
         )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Enabled",
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Switch(
+                checked = enabled,
+                onCheckedChange = onEnabledChange
+            )
+        }
 
         PatternSelector(
             title = "Sequence Length",
@@ -863,24 +959,24 @@ fun SequencerTab(
 
         ParamSlider(
             label = "Note Length",
-            value = noteLength,
+            value = stepLengthIndex.toFloat() / (noteLengthOptions.size - 1),
             onValueChange = {
                 val steps = (it * (noteLengthOptions.size - 1)).roundToInt()
-                onNoteLengthChange(steps.toFloat() / (noteLengthOptions.size - 1))
+                onStepLengthChange(steps)
             },
-            valueDisplay = noteLengthOptions[(noteLength * (noteLengthOptions.size - 1)).roundToInt()]
+            valueDisplay = noteLengthOptions[stepLengthIndex]
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         ParamSlider(
             label = "Measures",
-            value = measures,
+            value = measuresIndex.toFloat() / (measureOptions.size - 1),
             onValueChange = {
                 val steps = (it * (measureOptions.size - 1)).roundToInt()
-                onMeasuresChange(steps.toFloat() / (measureOptions.size - 1))
+                onMeasuresChange(steps)
             },
-            valueDisplay = String.format("%d bars", measureOptions[(measures * (measureOptions.size - 1)).roundToInt()])
+            valueDisplay = String.format("%d bars", measureOptions[measuresIndex])
         )
     }
 }
