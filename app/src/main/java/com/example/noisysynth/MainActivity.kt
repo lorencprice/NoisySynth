@@ -84,7 +84,8 @@ fun SynthUI(synthEngine: SynthEngine) {
     var arpeggiatorPattern by remember { mutableStateOf(0) }
     var arpeggiatorTempo by remember { mutableStateOf(0.5f) }
     var arpeggiatorGate by remember { mutableStateOf(0.5f) }
-
+    var arpeggiatorSubdivisionIndex by remember { mutableStateOf(1) }
+    
     var sequencerEnabled by remember { mutableStateOf(false) }
     var sequencerPattern by remember { mutableStateOf(0) }
     var sequencerTempo by remember { mutableStateOf(0.45f) }
@@ -123,6 +124,7 @@ fun SynthUI(synthEngine: SynthEngine) {
         synthEngine.setArpeggiatorPattern(arpeggiatorPattern)
         synthEngine.setArpeggiatorRate(60 + arpeggiatorTempo * 120)
         synthEngine.setArpeggiatorGate(0.2f + arpeggiatorGate * 0.8f)
+        synthEngine.setArpeggiatorSubdivision(arpeggiatorSubdivisionIndex)
         synthEngine.setArpeggiatorEnabled(arpeggiatorEnabled)
         synthEngine.setSequencerStepLength(sequencerStepLengthIndex)
         synthEngine.setSequencerMeasures(sequencerMeasureOptions[sequencerMeasuresIndex])
@@ -372,6 +374,7 @@ fun SynthUI(synthEngine: SynthEngine) {
                     selectedPattern = arpeggiatorPattern,
                     tempo = arpeggiatorTempo,
                     gate = arpeggiatorGate,
+                    subdivisionIndex = arpeggiatorSubdivisionIndex,
                     onEnabledChange = {
                         arpeggiatorEnabled = it
                         synthEngine.setArpeggiatorEnabled(it)
@@ -387,6 +390,10 @@ fun SynthUI(synthEngine: SynthEngine) {
                     onGateChange = {
                         arpeggiatorGate = it
                         synthEngine.setArpeggiatorGate(0.2f + it * 0.8f)
+                    },
+                    onSubdivisionChange = { index ->
+                        arpeggiatorSubdivisionIndex = index
+                        synthEngine.setArpeggiatorSubdivision(index)
                     }
                 )
                 7 -> SequencerTab(
@@ -534,7 +541,8 @@ fun EnvelopeTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 24.dp),
+            .padding(vertical = 24.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
@@ -818,18 +826,22 @@ fun ArpeggiatorTab(
     selectedPattern: Int,
     tempo: Float,
     gate: Float,
+    subdivisionIndex: Int,
     onEnabledChange: (Boolean) -> Unit,
     onPatternChange: (Int) -> Unit,
     onTempoChange: (Float) -> Unit,
-    onGateChange: (Float) -> Unit
+    onGateChange: (Float) -> Unit,
+    onSubdivisionChange: (Int) -> Unit
 ) {
     val patterns = listOf("Up", "Down", "Up-Down", "Random")
     val gateDisplay = listOf("20%", "40%", "60%", "80%", "100%")
-
+    val subdivisionOptions = listOf("1/2", "1/4", "1/8", "1/16")
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 24.dp),
+            .padding(vertical = 24.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
@@ -878,6 +890,18 @@ fun ArpeggiatorTab(
         Spacer(modifier = Modifier.height(16.dp))
 
         ParamSlider(
+            label = "Note Length",
+            value = subdivisionIndex.toFloat() / (subdivisionOptions.size - 1),
+            onValueChange = {
+                val steps = (it * (subdivisionOptions.size - 1)).roundToInt()
+                onSubdivisionChange(steps)
+            },
+            valueDisplay = subdivisionOptions[subdivisionIndex]
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ParamSlider(
             label = "Gate",
             value = gate,
             onValueChange = {
@@ -909,7 +933,8 @@ fun SequencerTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 24.dp),
+            .padding(vertical = 24.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
