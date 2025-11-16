@@ -41,6 +41,15 @@ class SynthEngine {
     private external fun native_setReverbSize(engineHandle: Long, size: Float)
     private external fun native_setReverbDamping(engineHandle: Long, damping: Float)
     private external fun native_setReverbMix(engineHandle: Long, mix: Float)
+    private external fun native_setArpeggiatorEnabled(engineHandle: Long, enabled: Boolean)
+    private external fun native_setArpeggiatorPattern(engineHandle: Long, pattern: Int)
+    private external fun native_setArpeggiatorRate(engineHandle: Long, bpm: Float)
+    private external fun native_setArpeggiatorGate(engineHandle: Long, gate: Float)
+    private external fun native_setSequencerEnabled(engineHandle: Long, enabled: Boolean)
+    private external fun native_setSequencerTempo(engineHandle: Long, bpm: Float)
+    private external fun native_setSequencerStepLength(engineHandle: Long, stepLength: Int)
+    private external fun native_setSequencerMeasures(engineHandle: Long, measures: Int)
+    private external fun native_setSequencerStep(engineHandle: Long, index: Int, midiNote: Int, active: Boolean)
     
     private val engineHandle: Long = create()
     
@@ -155,6 +164,42 @@ class SynthEngine {
 
     fun setReverbMix(mix: Float) {
         native_setReverbMix(engineHandle, mix)
+    }
+    
+    fun setArpeggiatorEnabled(enabled: Boolean) {
+        native_setArpeggiatorEnabled(engineHandle, enabled)
+    }
+
+    fun setArpeggiatorPattern(pattern: Int) {
+        native_setArpeggiatorPattern(engineHandle, pattern)
+    }
+
+    fun setArpeggiatorRate(bpm: Float) {
+        native_setArpeggiatorRate(engineHandle, bpm)
+    }
+
+    fun setArpeggiatorGate(gate: Float) {
+        native_setArpeggiatorGate(engineHandle, gate)
+    }
+
+    fun setSequencerEnabled(enabled: Boolean) {
+        native_setSequencerEnabled(engineHandle, enabled)
+    }
+
+    fun setSequencerTempo(bpm: Float) {
+        native_setSequencerTempo(engineHandle, bpm)
+    }
+
+    fun setSequencerStepLength(stepLength: Int) {
+        native_setSequencerStepLength(engineHandle, stepLength)
+    }
+
+    fun setSequencerMeasures(measures: Int) {
+        native_setSequencerMeasures(engineHandle, measures)
+    }
+
+    fun setSequencerStep(index: Int, midiNote: Int, active: Boolean) {
+        native_setSequencerStep(engineHandle, index, midiNote, active)
     }
     
     fun delete() {
