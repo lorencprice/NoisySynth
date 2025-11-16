@@ -244,6 +244,13 @@ Java_com_example_noisysynth_SynthEngine_native_1setArpeggiatorGate(
 }
 
 JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setArpeggiatorSubdivision(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jint subdivision) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setArpeggiatorSubdivision(static_cast<int>(subdivision));
+}
+
+JNIEXPORT void JNICALL
 Java_com_example_noisysynth_SynthEngine_native_1setSequencerEnabled(
     JNIEnv *env, jobject thiz, jlong engine_handle, jboolean enabled) {
     auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
