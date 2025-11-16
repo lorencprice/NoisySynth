@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.noisysynth.ui.theme.NoisySynthTheme
+import kotlin.math.roundToInt
 
 class MainActivity : ComponentActivity() {
     private lateinit var synthEngine: SynthEngine
@@ -78,6 +79,16 @@ fun SynthUI(synthEngine: SynthEngine) {
     var reverbSize by remember { mutableStateOf(0.6f) }
     var reverbDamping by remember { mutableStateOf(0.35f) }
     var reverbMix by remember { mutableStateOf(0.4f) }
+    
+    var arpeggiatorPattern by remember { mutableStateOf(0) }
+    var arpeggiatorTempo by remember { mutableStateOf(0.5f) }
+    var arpeggiatorNoteLength by remember { mutableStateOf(0.5f) }
+    var arpeggiatorMeasures by remember { mutableStateOf(0.25f) }
+
+    var sequencerPattern by remember { mutableStateOf(0) }
+    var sequencerTempo by remember { mutableStateOf(0.45f) }
+    var sequencerNoteLength by remember { mutableStateOf(0.4f) }
+    var sequencerMeasures by remember { mutableStateOf(0.35f) }
     
     var selectedTab by remember { mutableStateOf(0) }
     
@@ -153,6 +164,16 @@ fun SynthUI(synthEngine: SynthEngine) {
                 selected = selectedTab == 5,
                 onClick = { selectedTab = 5 },
                 text = { Text("FX", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 6,
+                onClick = { selectedTab = 6 },
+                text = { Text("ARPEGGIO", fontWeight = FontWeight.Bold) }
+            )
+            Tab(
+                selected = selectedTab == 7,
+                onClick = { selectedTab = 7 },
+                text = { Text("SEQUENCER", fontWeight = FontWeight.Bold) }
             )
         }
         
@@ -305,6 +326,26 @@ fun SynthUI(synthEngine: SynthEngine) {
                         reverbMix = it
                         synthEngine.setReverbMix(it)
                     }
+                )
+                6 -> ArpeggiatorTab(
+                    selectedPattern = arpeggiatorPattern,
+                    tempo = arpeggiatorTempo,
+                    noteLength = arpeggiatorNoteLength,
+                    measures = arpeggiatorMeasures,
+                    onPatternChange = { arpeggiatorPattern = it },
+                    onTempoChange = { arpeggiatorTempo = it },
+                    onNoteLengthChange = { arpeggiatorNoteLength = it },
+                    onMeasuresChange = { arpeggiatorMeasures = it }
+                )
+                7 -> SequencerTab(
+                    selectedPattern = sequencerPattern,
+                    tempo = sequencerTempo,
+                    noteLength = sequencerNoteLength,
+                    measures = sequencerMeasures,
+                    onPatternChange = { sequencerPattern = it },
+                    onTempoChange = { sequencerTempo = it },
+                    onNoteLengthChange = { sequencerNoteLength = it },
+                    onMeasuresChange = { sequencerMeasures = it }
                 )
             }
         }
@@ -701,6 +742,203 @@ fun EffectsTab(
 }
 
 @Composable
+fun ArpeggiatorTab(
+    selectedPattern: Int,
+    tempo: Float,
+    noteLength: Float,
+    measures: Float,
+    onPatternChange: (Int) -> Unit,
+    onTempoChange: (Float) -> Unit,
+    onNoteLengthChange: (Float) -> Unit,
+    onMeasuresChange: (Float) -> Unit
+) {
+    val patterns = listOf("Up", "Down", "Up-Down", "Random")
+    val noteLengthOptions = listOf("1/16", "1/8", "1/4", "1/2", "1")
+    val measureOptions = (1..8).toList()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "ARPEGGIATOR",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        PatternSelector(
+            title = "Pattern",
+            options = patterns,
+            selectedIndex = selectedPattern,
+            onSelectionChange = onPatternChange
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        ParamSlider(
+            label = "Tempo",
+            value = tempo,
+            onValueChange = onTempoChange,
+            valueDisplay = String.format("%d BPM", (60 + tempo * 120).roundToInt())
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ParamSlider(
+            label = "Note Length",
+            value = noteLength,
+            onValueChange = {
+                val steps = (it * (noteLengthOptions.size - 1)).roundToInt()
+                onNoteLengthChange(steps.toFloat() / (noteLengthOptions.size - 1))
+            },
+            valueDisplay = noteLengthOptions[(noteLength * (noteLengthOptions.size - 1)).roundToInt()]
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ParamSlider(
+            label = "Measures",
+            value = measures,
+            onValueChange = {
+                val steps = (it * (measureOptions.size - 1)).roundToInt()
+                onMeasuresChange(steps.toFloat() / (measureOptions.size - 1))
+            },
+            valueDisplay = String.format("%d bars", measureOptions[(measures * (measureOptions.size - 1)).roundToInt()])
+        )
+    }
+}
+
+@Composable
+fun SequencerTab(
+    selectedPattern: Int,
+    tempo: Float,
+    noteLength: Float,
+    measures: Float,
+    onPatternChange: (Int) -> Unit,
+    onTempoChange: (Float) -> Unit,
+    onNoteLengthChange: (Float) -> Unit,
+    onMeasuresChange: (Float) -> Unit
+) {
+    val patterns = listOf("8-STEP", "16-STEP", "POLYRYTHMIC", "RANDOM WALK")
+    val noteLengthOptions = listOf("1/32", "1/16", "1/8", "1/4", "1/2")
+    val measureOptions = (1..16).toList()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            text = "STEP SEQUENCER",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 24.dp)
+        )
+
+        PatternSelector(
+            title = "Sequence Length",
+            options = patterns,
+            selectedIndex = selectedPattern,
+            onSelectionChange = onPatternChange
+        )
+
+        Spacer(modifier = Modifier.height(18.dp))
+
+        ParamSlider(
+            label = "Tempo",
+            value = tempo,
+            onValueChange = onTempoChange,
+            valueDisplay = String.format("%d BPM", (55 + tempo * 135).roundToInt())
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ParamSlider(
+            label = "Note Length",
+            value = noteLength,
+            onValueChange = {
+                val steps = (it * (noteLengthOptions.size - 1)).roundToInt()
+                onNoteLengthChange(steps.toFloat() / (noteLengthOptions.size - 1))
+            },
+            valueDisplay = noteLengthOptions[(noteLength * (noteLengthOptions.size - 1)).roundToInt()]
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        ParamSlider(
+            label = "Measures",
+            value = measures,
+            onValueChange = {
+                val steps = (it * (measureOptions.size - 1)).roundToInt()
+                onMeasuresChange(steps.toFloat() / (measureOptions.size - 1))
+            },
+            valueDisplay = String.format("%d bars", measureOptions[(measures * (measureOptions.size - 1)).roundToInt()])
+        )
+    }
+}
+
+@Composable
+fun PatternSelector(
+    title: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelectionChange: (Int) -> Unit
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = title.uppercase(),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.primary,
+            letterSpacing = 1.2.sp
+        )
+
+        options.chunked(2).forEach { rowItems ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                rowItems.forEach { option ->
+                    val index = options.indexOf(option)
+                    Button(
+                        onClick = { onSelectionChange(index) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedIndex == index)
+                                MaterialTheme.colorScheme.primary
+                            else
+                                MaterialTheme.colorScheme.surfaceVariant
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = if (selectedIndex == index) 6.dp else 2.dp
+                        ),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Text(
+                            text = option,
+                            fontSize = 15.sp,
+                            fontWeight = if (selectedIndex == index) FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun EffectSection(
     title: String,
     enabled: Boolean,
@@ -749,7 +987,6 @@ fun EffectSection(
         }
     }
 }
-
 
 @Composable
 fun ParamSlider(
