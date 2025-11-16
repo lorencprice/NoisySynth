@@ -168,9 +168,11 @@ public:
     }
     
     void reset() { 
-        lowpass_ = 0.0f;
-        bandpass_ = 0.0f;
-        highpass_ = 0.0f;
+        // Gentle reset - decay filter state instead of hard zero
+        // This prevents clicks from sudden state changes
+        lowpass_ *= 0.5f;
+        bandpass_ *= 0.5f;
+        highpass_ *= 0.5f;
     }
     
 private:
@@ -213,7 +215,7 @@ private:
 class Voice {
 public:
     Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
-              waveform_(Waveform::SAWTOOTH) {}
+              waveform_(Waveform::SAWTOOTH), clickSuppression_(0.0f), clickSuppressionSamples_(0) {}
     
     void noteOn(int midiNote, Waveform waveform) {
         midiNote_ = midiNote;
@@ -222,8 +224,23 @@ public:
         active_ = true;
         ampEnvelope_.noteOn();
         filterEnvelope_.noteOn();
-        filter_.reset();
-        phase_ = 0.0f; // Reset phase on note on
+        // DON'T reset filter - let it continue naturally to avoid state discontinuity
+        
+        // CRITICAL FIX: Don't hard-reset phase to zero!
+        // Instead, let it continue from where it was OR start at a zero-crossing
+        // Only reset on first-ever note or if voice was completely silent
+        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
+            // Start at zero-crossing of waveform to minimize click
+            phase_ = 0.0f;
+            
+            // Add ultra-short click suppression fade-in (96 samples = 2ms at 48kHz)
+            clickSuppressionSamples_ = 96;
+            clickSuppression_ = 0.0f;
+        }
+        // else: phase continues from previous value (legato)
+        
+        lastMidiNote_ = midiNote;
+        wasRecentlyActive_ = true;
     }
     
     void noteOff() {
@@ -235,6 +252,7 @@ public:
     float process(float sampleRate, float lfoValue) {
         if (!ampEnvelope_.isActive() && !filterEnvelope_.isActive()) {
             midiNote_ = -1; // Clear note assignment
+            wasRecentlyActive_ = false;
             return 0.0f;
         }
         
@@ -245,6 +263,13 @@ public:
         phase_ += frequency_ / sampleRate;
         if (phase_ >= 1.0f) {
             phase_ -= 1.0f;
+        }
+        
+        // Apply ultra-short click suppression fade-in if needed
+        if (clickSuppressionSamples_ > 0) {
+            clickSuppression_ = 1.0f - (clickSuppressionSamples_ / 96.0f);
+            sample *= clickSuppression_;
+            clickSuppressionSamples_--;
         }
         
         // Get envelope values
@@ -311,6 +336,12 @@ private:
     Envelope filterEnvelope_;
     Filter filter_;
     float filterEnvAmount_ = 0.5f; // Default filter envelope amount
+    
+    // Click suppression
+    int lastMidiNote_ = -1;
+    bool wasRecentlyActive_ = false;
+    float clickSuppression_ = 0.0f;
+    int clickSuppressionSamples_ = 0;
 };
 
 /**
