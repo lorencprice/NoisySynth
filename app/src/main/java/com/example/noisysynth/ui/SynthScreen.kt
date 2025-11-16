@@ -132,11 +132,7 @@ fun SynthScreen(synthEngine: SynthEngine) {
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
                 
-                // Keyboard
-                SimpleKeyboard(
-                    onNoteOn = { note -> synthEngine.noteOn(note) },
-                    onNoteOff = { note -> synthEngine.noteOff(note) }
-                )
+               
             }
         }
         
@@ -394,6 +390,25 @@ fun SynthScreen(synthEngine: SynthEngine) {
                         synthEngine.setSequencerMeasures(sequencerMeasureOptions[index])
                         syncSequencerPattern(measureIndex = index)
                     }
+                )
+            }
+        }
+         Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 4.dp,
+            shadowElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+         // Keyboard
+                SimpleKeyboard(
+                    onNoteOn = { note -> synthEngine.noteOn(note) },
+                    onNoteOff = { note -> synthEngine.noteOff(note) }
                 )
             }
         }
