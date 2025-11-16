@@ -144,15 +144,6 @@ private:
     float attackStartLevel_;
     float releaseStartLevel_;
 };
-    
-    float attack_;
-    float decay_;
-    float sustain_;
-    float release_;
-    Phase phase_;
-    float level_;
-    float time_;
-};
 
 /**
  * State Variable Filter (SVF) - Proper lowpass with resonance
