@@ -99,17 +99,14 @@ fun ArpeggiatorTab(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        val safeGate = gate.coerceIn(0f, 1f)
-        val gateIndex = (safeGate * (gateDisplay.size - 1)).roundToInt().coerceIn(0, gateDisplay.size - 1)
-
         ParamSlider(
             label = "Gate",
-            value = safeGate,
+            value = gate,
             onValueChange = {
-                val steps = (it.coerceIn(0f, 1f) * (gateDisplay.size - 1)).roundToInt().coerceIn(0, gateDisplay.size - 1)
+                val steps = (it * (gateDisplay.size - 1)).roundToInt()
                 onGateChange(steps.toFloat() / (gateDisplay.size - 1))
             },
-            valueDisplay = gateDisplay[gateIndex]
+            valueDisplay = gateDisplay[(gate * (gateDisplay.size - 1)).roundToInt()]
         )
     }
 }
