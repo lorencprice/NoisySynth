@@ -20,7 +20,6 @@ import kotlin.math.roundToInt
 
 @Composable
 fun SimpleKeyboard(
-    modifier: Modifier = Modifier,
     onNoteOn: (Int) -> Unit,
     onNoteOff: (Int) -> Unit
 ) {
