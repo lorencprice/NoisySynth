@@ -147,34 +147,54 @@ public:
         float f = 2.0f * std::sin(kPI * freq / sampleRate);
         f = std::min(f, 0.99f); // Clamp for stability
         
-     
-        // Map resonance to Q (quality factor) exponentially for a smoother,
-        // ear-friendly progression. Q values below ~0.7 flatten the peak;
-        // higher values create a sharper resonance.
-        constexpr float qMin = 0.707f;   // Butterworth-ish (no peak, flat)
-        constexpr float qMax = 12.0f;    // Strong but controlled resonance
+        // Map resonance to Q (quality factor) exponentially
+        constexpr float qMin = 0.707f;
+        constexpr float qMax = 12.0f;
         float q = qMin * std::pow(qMax / qMin, resonance_);
         
         // For SVF, damping = 1/Q
-        // High Q = low damping = high resonance
-        // Low Q = high damping = low resonance
         float damp = 1.0f / q;
-        damp = std::max(0.05f, std::min(1.4f, damp)); // Safety clamp
+        damp = std::max(0.05f, std::min(1.4f, damp));
+        
+        // CRITICAL FIX: Flush denormal numbers to zero
+        // Denormals cause massive CPU spikes and crackling/distortion
+        auto flushDenormal = [](float& value) {
+            // If value is extremely small (denormal range), set to zero
+            if (std::fabs(value) < 1.0e-15f) {
+                value = 0.0f;
+            }
+        };
+        
+        flushDenormal(lowpass_);
+        flushDenormal(bandpass_);
+        flushDenormal(highpass_);
         
         // State variable filter equations
         lowpass_ += f * bandpass_;
         highpass_ = input - lowpass_ - (damp * bandpass_);
         bandpass_ += f * highpass_;
         
+        // CRITICAL FIX: Clamp filter states to prevent instability
+        // This prevents the filter from "exploding" with rapid note triggers
+        const float maxState = 10.0f;
+        lowpass_ = std::max(-maxState, std::min(maxState, lowpass_));
+        bandpass_ = std::max(-maxState, std::min(maxState, bandpass_));
+        highpass_ = std::max(-maxState, std::min(maxState, highpass_));
+        
+        // Flush denormals again after processing
+        flushDenormal(lowpass_);
+        flushDenormal(bandpass_);
+        flushDenormal(highpass_);
+        
         return lowpass_;
     }
     
     void reset() { 
-        // Gentle reset - decay filter state instead of hard zero
-        // This prevents clicks from sudden state changes
-        lowpass_ *= 0.5f;
-        bandpass_ *= 0.5f;
-        highpass_ *= 0.5f;
+        // Gentle reset - decay towards zero instead of hard zero
+        // This prevents transients while clearing accumulated state
+        lowpass_ *= 0.1f;
+        bandpass_ *= 0.1f;
+        highpass_ *= 0.1f;
     }
     
 private:
@@ -227,20 +247,21 @@ public:
         active_ = true;
         ampEnvelope_.noteOn();
         filterEnvelope_.noteOn();
-        // DON'T reset filter - let it continue naturally to avoid state discontinuity
         
-        // CRITICAL FIX: Don't hard-reset phase to zero!
-        // Instead, let it continue from where it was OR start at a zero-crossing
-        // Only reset on first-ever note or if voice was completely silent
+        // CRITICAL FIX: Reset filter on NEW notes only (not retriggered notes)
+        // This prevents state accumulation in the arpeggiator
         if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
-            // Start at zero-crossing of waveform to minimize click
+            filter_.reset();
+        }
+        
+        // Don't hard-reset phase to zero unless it's a new note
+        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
             phase_ = 0.0f;
             
-            // Add ultra-short click suppression fade-in (96 samples = 2ms at 48kHz)
+            // Add ultra-short click suppression fade-in
             clickSuppressionSamples_ = 96;
             clickSuppression_ = 0.0f;
         }
-        // else: phase continues from previous value (legato)
         
         lastMidiNote_ = midiNote;
         wasRecentlyActive_ = true;
