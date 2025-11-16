@@ -188,7 +188,8 @@ fun SynthScreen(synthEngine: SynthEngine) {
         // Tab Content
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f) 
+                .fillMaxWidth()
                 .padding(16.dp)
         ) {
             when (selectedTab) {
