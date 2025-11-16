@@ -453,8 +453,8 @@ private:
     float processChorus(float input, float sampleRate);
     float processReverb(float input, float sampleRate);
     void initializeEffects(float sampleRate);
-    void processArpeggiator(float sampleRate);
-    void processSequencer(float sampleRate);
+    void processArpeggiator(float sampleRate, int32_t numFrames);  // FIXED: Now takes numFrames
+    void processSequencer(float sampleRate, int32_t numFrames);     // FIXED: Now takes numFrames
     void configureSequenceLength();
     int getStepsPerMeasure() const;
 
