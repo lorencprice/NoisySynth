@@ -517,6 +517,7 @@ private:
     int arpIndex_ = 0;
     int currentArpNote_ = -1;
     bool arpNoteActive_ = false;
+    bool arpStepStarted_ = false;
 
     bool sequencerEnabled_ = false;
     float sequencerTempoBpm_ = 120.0f;
@@ -528,6 +529,7 @@ private:
     int sequencerCurrentStep_ = 0;
     int sequencerActiveNote_ = -1;
     bool sequencerNoteActive_ = false;
+    bool sequencerStepStarted_ = false;
     bool suppressArpCapture_ = false;
 
     // Output safety
