@@ -215,4 +215,67 @@ Java_com_example_noisysynth_SynthEngine_native_1setReverbMix(
     engine->setReverbMix(static_cast<float>(mix));
 }
 
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setArpeggiatorEnabled(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jboolean enabled) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setArpeggiatorEnabled(static_cast<bool>(enabled));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setArpeggiatorPattern(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jint pattern) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setArpeggiatorPattern(static_cast<int>(pattern));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setArpeggiatorRate(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat bpm) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setArpeggiatorRate(static_cast<float>(bpm));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setArpeggiatorGate(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat gate) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setArpeggiatorGate(static_cast<float>(gate));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setSequencerEnabled(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jboolean enabled) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setSequencerEnabled(static_cast<bool>(enabled));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setSequencerTempo(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jfloat bpm) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setSequencerTempo(static_cast<float>(bpm));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setSequencerStepLength(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jint step_length) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setSequencerStepLength(static_cast<int>(step_length));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setSequencerMeasures(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jint measures) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setSequencerMeasures(static_cast<int>(measures));
+}
+
+JNIEXPORT void JNICALL
+Java_com_example_noisysynth_SynthEngine_native_1setSequencerStep(
+    JNIEnv *env, jobject thiz, jlong engine_handle, jint index, jint midi_note, jboolean active) {
+    auto *engine = reinterpret_cast<SynthEngine *>(engine_handle);
+    engine->setSequencerStep(static_cast<int>(index), static_cast<int>(midi_note), static_cast<bool>(active));
+}
+
 } // extern "C"
