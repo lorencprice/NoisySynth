@@ -76,9 +76,13 @@ fun SynthScreen(synthEngine: SynthEngine) {
         stepLengthIndexValue: Int = sequencerStepLengthIndex,
         measureIndex: Int = sequencerMeasuresIndex
     ) {
-        val measureCount = sequencerMeasureOptions[measureIndex]
-        val totalSteps = measureCount * stepsPerMeasure(stepLengthIndexValue)
-        val patternNotes = when (patternIndex) {
+        val safeMeasureIndex = measureIndex.coerceIn(0, sequencerMeasureOptions.size - 1)
+        val safePatternIndex = patternIndex.coerceIn(0, 3)
+        val safeStepIndex = stepLengthIndexValue.coerceIn(0, 3)
+
+        val measureCount = sequencerMeasureOptions[safeMeasureIndex]
+        val totalSteps = measureCount * stepsPerMeasure(safeStepIndex)
+        val patternNotes = when (safePatternIndex) {
             1 -> listOf(72, 71, 69, 67, 65, 64, 62, 60)
             2 -> listOf(60, 64, 67, 70)
             3 -> listOf(60, 63, 67, 70, 74)
