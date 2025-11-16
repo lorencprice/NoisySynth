@@ -364,18 +364,32 @@ void SynthEngine::setReverbMix(float mix) {
 
 void SynthEngine::setArpeggiatorEnabled(bool enabled) {
     if (!enabled && arpeggiatorEnabled_ && arpNoteActive_) {
+        // Turn off any active arp note when disabling
         suppressArpCapture_ = true;
         noteOff(currentArpNote_);
         suppressArpCapture_ = false;
     }
+
     arpeggiatorEnabled_ = enabled;
+
     if (!enabled) {
+        // Reset arp state completely when disabling
         heldNotes_.clear();
         arpSampleCounter_ = 0.0f;
+        arpIndex_ = 0;
         arpNoteActive_ = false;
+        arpStepStarted_ = false;
+        currentArpNote_ = -1;
+    } else {
+        // When enabling, start from a clean step boundary
+        arpSampleCounter_ = 0.0f;
+        arpIndex_ = 0;
+        arpNoteActive_ = false;
+        arpStepStarted_ = false;
         currentArpNote_ = -1;
     }
 }
+
 
 void SynthEngine::setArpeggiatorPattern(int pattern) {
     arpeggiatorPattern_ = std::max(0, std::min(3, pattern));
@@ -410,17 +424,31 @@ void SynthEngine::setArpeggiatorSubdivision(int subdivision) {
 
 void SynthEngine::setSequencerEnabled(bool enabled) {
     if (!enabled && sequencerNoteActive_) {
+        // Turn off any active sequencer note when disabling
         suppressArpCapture_ = true;
         noteOff(sequencerActiveNote_);
         suppressArpCapture_ = false;
     }
+
     sequencerEnabled_ = enabled;
+
     if (!enabled) {
+        // Reset sequencer state completely when disabling
         sequencerSampleCounter_ = 0.0f;
-        sequencerNoteActive_ = false;
+        sequencerCurrentStep_ = 0;
         sequencerActiveNote_ = -1;
+        sequencerNoteActive_ = false;
+        sequencerStepStarted_ = false;
+    } else {
+        // When enabling, start from the first step with a clean state
+        sequencerSampleCounter_ = 0.0f;
+        sequencerCurrentStep_ = 0;
+        sequencerActiveNote_ = -1;
+        sequencerNoteActive_ = false;
+        sequencerStepStarted_ = false;
     }
 }
+
 
 void SynthEngine::setSequencerTempo(float bpm) {
     sequencerTempoBpm_ = std::max(20.0f, bpm);
@@ -451,15 +479,20 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
         return;
     }
 
-    // Increment counter by number of frames in this buffer
+    // Advance position within the current step
     arpSampleCounter_ += numFrames;
-    
+
     float stepDuration = (60.0f / arpeggiatorRateBpm_) * arpeggiatorStepMultiplier_;
     float stepDurationSamples = stepDuration * sampleRate;
+    float gateTimeSamples = stepDurationSamples * arpeggiatorGate_;
 
-    // Check if we need to trigger a new note
-    if (!arpNoteActive_ && arpSampleCounter_ >= 0) {
+    // Start a new step (and its note) if we haven't yet
+    if (!arpStepStarted_) {
         int noteCount = static_cast<int>(heldNotes_.size());
+        if (noteCount <= 0) {
+            return;
+        }
+
         int idx = 0;
         switch (arpeggiatorPattern_) {
             case 0: // Up
@@ -485,14 +518,23 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
         }
 
         currentArpNote_ = heldNotes_[idx];
+
+        // Ensure any previous arp note is turned off before starting a new one
+        if (arpNoteActive_) {
+            suppressArpCapture_ = true;
+            noteOff(currentArpNote_);
+            suppressArpCapture_ = false;
+            arpNoteActive_ = false;
+        }
+
         suppressArpCapture_ = true;
         noteOn(currentArpNote_);
         suppressArpCapture_ = false;
         arpNoteActive_ = true;
+        arpStepStarted_ = true;
     }
 
-    // Check if we need to release the current note (gate)
-    float gateTimeSamples = stepDurationSamples * arpeggiatorGate_;
+    // Gate the current note
     if (arpNoteActive_ && arpSampleCounter_ >= gateTimeSamples) {
         suppressArpCapture_ = true;
         noteOff(currentArpNote_);
@@ -500,7 +542,7 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
         arpNoteActive_ = false;
     }
 
-    // Check if we need to advance to next step
+    // Advance to the next step when the duration has elapsed
     if (arpSampleCounter_ >= stepDurationSamples) {
         // Make sure note is off before advancing
         if (arpNoteActive_) {
@@ -509,12 +551,21 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
             suppressArpCapture_ = false;
             arpNoteActive_ = false;
         }
-        
-        // Reset counter and advance
+
+        // Reset counter and advance to the next arp index
         arpSampleCounter_ -= stepDurationSamples;
-        arpIndex_ = (arpIndex_ + 1) % std::max<int>(1, heldNotes_.size());
+
+        if (!heldNotes_.empty()) {
+            arpIndex_ = (arpIndex_ + 1) % std::max<int>(1, heldNotes_.size());
+        } else {
+            arpIndex_ = 0;
+        }
+
+        // Mark that the next call should start a new step
+        arpStepStarted_ = false;
     }
 }
+
 
 // CRITICAL FIX: Process sequencer ONCE per buffer, not per sample!
 void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
@@ -522,7 +573,7 @@ void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
         return;
     }
 
-    // Increment counter by number of frames in this buffer
+    // Advance position within the current step
     sequencerSampleCounter_ += numFrames;
 
     float beatSeconds = 60.0f / sequencerTempoBpm_;
@@ -544,21 +595,26 @@ void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
 
     float stepDuration = beatSeconds * lengthMultiplier;
     float stepDurationSamples = stepDuration * sampleRate;
+    float gateTimeSamples = stepDurationSamples * 0.9f;
 
-    // Check if we need to trigger a new note
-    if (!sequencerNoteActive_ && sequencerSampleCounter_ >= 0) {
+    // Start the current step's note if we haven't yet
+    if (!sequencerStepStarted_) {
         const auto& step = sequencerSteps_[sequencerCurrentStep_ % sequencerSteps_.size()];
         sequencerActiveNote_ = step.midiNote;
+
         if (step.active) {
             suppressArpCapture_ = true;
             noteOn(step.midiNote);
             suppressArpCapture_ = false;
             sequencerNoteActive_ = true;
+        } else {
+            sequencerNoteActive_ = false;
         }
+
+        sequencerStepStarted_ = true;
     }
 
-    // Check if we need to release the current note (90% gate)
-    float gateTimeSamples = stepDurationSamples * 0.9f;
+    // Gate off the note part-way through the step
     if (sequencerNoteActive_ && sequencerSampleCounter_ >= gateTimeSamples) {
         suppressArpCapture_ = true;
         noteOff(sequencerActiveNote_);
@@ -566,7 +622,7 @@ void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
         sequencerNoteActive_ = false;
     }
 
-    // Check if we need to advance to next step
+    // Advance to the next step when its duration has elapsed
     if (sequencerSampleCounter_ >= stepDurationSamples) {
         // Make sure note is off before advancing
         if (sequencerNoteActive_) {
@@ -575,12 +631,17 @@ void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
             suppressArpCapture_ = false;
             sequencerNoteActive_ = false;
         }
-        
-        // Reset counter and advance
+
         sequencerSampleCounter_ -= stepDurationSamples;
-        sequencerCurrentStep_ = (sequencerCurrentStep_ + 1) % sequencerSteps_.size();
+        if (!sequencerSteps_.empty()) {
+            sequencerCurrentStep_ = (sequencerCurrentStep_ + 1) % sequencerSteps_.size();
+        } else {
+            sequencerCurrentStep_ = 0;
+        }
+        sequencerStepStarted_ = false;
     }
 }
+
 
 void SynthEngine::configureSequenceLength() {
     int stepsPerMeasure = getStepsPerMeasure();
