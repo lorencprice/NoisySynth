@@ -34,7 +34,8 @@ fun FilterEnvelopeTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(vertical = 20.dp),
+            .padding(vertical = 20.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.Center
     ) {
         Text(
@@ -90,4 +91,3 @@ fun FilterEnvelopeTab(
         )
     }
 }
-
