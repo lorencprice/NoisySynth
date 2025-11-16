@@ -1,5 +1,6 @@
 #include "SynthEngine.h"
 #include <android/log.h>
+#include <cstdlib>
 
 #define LOG_TAG "NoisySynth"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
@@ -29,7 +30,23 @@ SynthEngine::SynthEngine()
       reverbEnabled_(false),
       reverbSize_(0.6f),
       reverbDamping_(0.35f),
-      reverbMix_(0.4f) {
+      reverbMix_(0.4f),
+      arpeggiatorEnabled_(false),
+      arpeggiatorPattern_(0),
+      arpeggiatorRateBpm_(120.0f),
+      arpeggiatorGate_(0.5f),
+      arpSampleCounter_(0.0f),
+      arpIndex_(0),
+      currentArpNote_(-1),
+      arpNoteActive_(false),
+      sequencerEnabled_(false),
+      sequencerTempoBpm_(120.0f),
+      sequencerStepLength_(SequencerStepLength::Eighth),
+      sequencerMeasures_(4),
+      sequencerSampleCounter_(0.0f),
+      sequencerCurrentStep_(0),
+      sequencerActiveNote_(-1),
+      sequencerNoteActive_(false) {
     
     // Initialize voices
     voices_.resize(kMaxVoices);
@@ -52,7 +69,8 @@ SynthEngine::SynthEngine()
 
     
     initializeEffects(stream_->getSampleRate());
-    
+    configureSequenceLength();
+        
     LOGD("Stream created: SR=%d, BufferSize=%d",
          stream_->getSampleRate(),
          stream_->getBufferSizeInFrames());
@@ -84,7 +102,12 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
     // Process each frame
     for (int32_t i = 0; i < numFrames; i++) {
         float sample = 0.0f;
-        
+   
+    processSequencer(sampleRate);
+        if (!sequencerEnabled_) {
+            processArpeggiator(sampleRate);
+        }
+ 
         // Generate LFO value
         float lfoValue = lfo_.process(sampleRate);
         
@@ -122,6 +145,13 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
 }
 
 void SynthEngine::noteOn(int midiNote) {
+    if (arpeggiatorEnabled_ && !suppressArpCapture_) {
+        if (std::find(heldNotes_.begin(), heldNotes_.end(), midiNote) == heldNotes_.end()) {
+            heldNotes_.push_back(midiNote);
+        }
+        return;
+    }
+
     // First check if this note is already playing - if so, retrigger it
     Voice* existingVoice = findVoiceForNote(midiNote);
     if (existingVoice) {
@@ -164,6 +194,19 @@ void SynthEngine::noteOn(int midiNote) {
 }
 
 void SynthEngine::noteOff(int midiNote) {
+    if (arpeggiatorEnabled_ && !suppressArpCapture_) {
+        heldNotes_.erase(std::remove(heldNotes_.begin(), heldNotes_.end(), midiNote), heldNotes_.end());
+        if (midiNote == currentArpNote_ && arpNoteActive_) {
+            Voice* voice = findVoiceForNote(midiNote);
+            if (voice) {
+                voice->noteOff();
+            }
+            arpNoteActive_ = false;
+            currentArpNote_ = -1;
+        }
+        return;
+    }
+
     Voice* voice = findVoiceForNote(midiNote);
     if (voice) {
         voice->noteOff();
@@ -307,6 +350,232 @@ void SynthEngine::setReverbDamping(float damping) {
 
 void SynthEngine::setReverbMix(float mix) {
     reverbMix_ = std::max(0.0f, std::min(1.0f, mix));
+}
+
+void SynthEngine::setArpeggiatorEnabled(bool enabled) {
+    if (!enabled && arpeggiatorEnabled_ && arpNoteActive_) {
+        suppressArpCapture_ = true;
+        noteOff(currentArpNote_);
+        suppressArpCapture_ = false;
+    }
+    arpeggiatorEnabled_ = enabled;
+    if (!enabled) {
+        heldNotes_.clear();
+        arpSampleCounter_ = 0.0f;
+        arpNoteActive_ = false;
+        currentArpNote_ = -1;
+    }
+}
+
+void SynthEngine::setArpeggiatorPattern(int pattern) {
+    arpeggiatorPattern_ = std::max(0, std::min(3, pattern));
+}
+
+void SynthEngine::setArpeggiatorRate(float bpm) {
+    arpeggiatorRateBpm_ = std::max(20.0f, bpm);
+}
+
+void SynthEngine::setArpeggiatorGate(float gate) {
+    arpeggiatorGate_ = std::max(0.05f, std::min(1.0f, gate));
+}
+
+void SynthEngine::setSequencerEnabled(bool enabled) {
+    if (!enabled && sequencerNoteActive_) {
+        suppressArpCapture_ = true;
+        noteOff(sequencerActiveNote_);
+        suppressArpCapture_ = false;
+    }
+    sequencerEnabled_ = enabled;
+    if (!enabled) {
+        sequencerSampleCounter_ = 0.0f;
+        sequencerNoteActive_ = false;
+        sequencerActiveNote_ = -1;
+    }
+}
+
+void SynthEngine::setSequencerTempo(float bpm) {
+    sequencerTempoBpm_ = std::max(20.0f, bpm);
+}
+
+void SynthEngine::setSequencerStepLength(int stepLength) {
+    int clamped = std::max(0, std::min(3, stepLength));
+    sequencerStepLength_ = static_cast<SequencerStepLength>(clamped);
+    configureSequenceLength();
+}
+
+void SynthEngine::setSequencerMeasures(int measures) {
+    sequencerMeasures_ = std::max(1, measures);
+    configureSequenceLength();
+}
+
+void SynthEngine::setSequencerStep(int index, int midiNote, bool active) {
+    if (index < 0 || index >= static_cast<int>(sequencerSteps_.size())) {
+        return;
+    }
+    sequencerSteps_[index].midiNote = std::max(0, std::min(127, midiNote));
+    sequencerSteps_[index].active = active;
+}
+
+void SynthEngine::processArpeggiator(float sampleRate) {
+    if (!arpeggiatorEnabled_ || heldNotes_.empty()) {
+        return;
+    }
+
+    float stepDuration = 60.0f / std::max(20.0f, arpeggiatorRateBpm_);
+    float timeInStep = arpSampleCounter_ / sampleRate;
+
+    if (!arpNoteActive_) {
+        int noteCount = static_cast<int>(heldNotes_.size());
+        int idx = 0;
+        switch (arpeggiatorPattern_) {
+            case 0: // Up
+                idx = arpIndex_ % noteCount;
+                break;
+            case 1: // Down
+                idx = noteCount - 1 - (arpIndex_ % noteCount);
+                break;
+            case 2: { // Up-Down
+                if (noteCount == 1) {
+                    idx = 0;
+                    break;
+                }
+                int cycle = noteCount * 2 - 2;
+                int pos = arpIndex_ % cycle;
+                idx = (pos < noteCount) ? pos : (cycle - pos);
+                break;
+            }
+            case 3: // Random
+            default:
+                idx = std::rand() % noteCount;
+                break;
+        }
+
+        currentArpNote_ = heldNotes_[idx];
+        suppressArpCapture_ = true;
+        noteOn(currentArpNote_);
+        suppressArpCapture_ = false;
+        arpNoteActive_ = true;
+    }
+
+    float gateTime = stepDuration * arpeggiatorGate_;
+    if (arpNoteActive_ && timeInStep >= gateTime) {
+        suppressArpCapture_ = true;
+        noteOff(currentArpNote_);
+        suppressArpCapture_ = false;
+        arpNoteActive_ = false;
+    }
+
+    if (timeInStep >= stepDuration) {
+        if (arpNoteActive_) {
+            suppressArpCapture_ = true;
+            noteOff(currentArpNote_);
+            suppressArpCapture_ = false;
+        }
+        arpSampleCounter_ = 0.0f;
+        arpIndex_ = (arpIndex_ + 1) % std::max<int>(1, heldNotes_.size());
+        arpNoteActive_ = false;
+    }
+
+    arpSampleCounter_ += 1.0f;
+}
+
+void SynthEngine::processSequencer(float sampleRate) {
+    if (!sequencerEnabled_ || sequencerSteps_.empty()) {
+        return;
+    }
+
+    float beatSeconds = 60.0f / std::max(20.0f, sequencerTempoBpm_);
+    float lengthMultiplier = 1.0f;
+    switch (sequencerStepLength_) {
+        case SequencerStepLength::Eighth:
+            lengthMultiplier = 0.5f;
+            break;
+        case SequencerStepLength::Quarter:
+            lengthMultiplier = 1.0f;
+            break;
+        case SequencerStepLength::Half:
+            lengthMultiplier = 2.0f;
+            break;
+        case SequencerStepLength::Whole:
+            lengthMultiplier = 4.0f;
+            break;
+    }
+
+    float stepDuration = beatSeconds * lengthMultiplier;
+    float timeInStep = sequencerSampleCounter_ / sampleRate;
+
+    if (!sequencerNoteActive_) {
+        const auto& step = sequencerSteps_[sequencerCurrentStep_ % sequencerSteps_.size()];
+        sequencerActiveNote_ = step.midiNote;
+        if (step.active) {
+            suppressArpCapture_ = true;
+            noteOn(step.midiNote);
+            suppressArpCapture_ = false;
+            sequencerNoteActive_ = true;
+        }
+    }
+
+    float gateTime = stepDuration * 0.9f;
+    if (sequencerNoteActive_ && timeInStep >= gateTime) {
+        suppressArpCapture_ = true;
+        noteOff(sequencerActiveNote_);
+        suppressArpCapture_ = false;
+        sequencerNoteActive_ = false;
+    }
+
+    if (timeInStep >= stepDuration) {
+        if (sequencerNoteActive_) {
+            suppressArpCapture_ = true;
+            noteOff(sequencerActiveNote_);
+            suppressArpCapture_ = false;
+        }
+        sequencerSampleCounter_ = 0.0f;
+        sequencerCurrentStep_ = (sequencerCurrentStep_ + 1) % sequencerSteps_.size();
+        sequencerNoteActive_ = false;
+    }
+
+    sequencerSampleCounter_ += 1.0f;
+}
+
+void SynthEngine::configureSequenceLength() {
+    int stepsPerMeasure = getStepsPerMeasure();
+    int totalSteps = std::max(1, sequencerMeasures_ * stepsPerMeasure);
+    static const int patternNotes[] = {60, 62, 64, 65, 67, 69, 71, 72};
+
+    if (sequencerActiveNote_ >= 0 && sequencerNoteActive_) {
+        suppressArpCapture_ = true;
+        noteOff(sequencerActiveNote_);
+        suppressArpCapture_ = false;
+    }
+
+    std::vector<SequencerStep> newSteps(totalSteps);
+    for (int i = 0; i < totalSteps; ++i) {
+        if (i < static_cast<int>(sequencerSteps_.size())) {
+            newSteps[i] = sequencerSteps_[i];
+        } else {
+            newSteps[i] = {patternNotes[i % 8], true};
+        }
+    }
+
+    sequencerSteps_.swap(newSteps);
+    sequencerCurrentStep_ = std::min(sequencerCurrentStep_, static_cast<int>(sequencerSteps_.size()) - 1);
+    sequencerSampleCounter_ = 0.0f;
+    sequencerActiveNote_ = -1;
+    sequencerNoteActive_ = false;
+}
+
+int SynthEngine::getStepsPerMeasure() const {
+    switch (sequencerStepLength_) {
+        case SequencerStepLength::Eighth:
+            return 8;
+        case SequencerStepLength::Quarter:
+            return 4;
+        case SequencerStepLength::Half:
+            return 2;
+        case SequencerStepLength::Whole:
+            return 1;
+    }
+    return 4;
 }
 
 float SynthEngine::processDelay(float input, float sampleRate) {
