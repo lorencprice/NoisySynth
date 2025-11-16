@@ -99,14 +99,16 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
     // Clear output buffer
     std::fill_n(outputBuffer, numFrames, 0.0f);
     
+    // CRITICAL FIX: Process arpeggiator/sequencer ONCE per buffer, not per sample!
+    // This prevents timing chaos and stuck notes
+    processSequencer(sampleRate, numFrames);
+    if (!sequencerEnabled_) {
+        processArpeggiator(sampleRate, numFrames);
+    }
+    
     // Process each frame
     for (int32_t i = 0; i < numFrames; i++) {
         float sample = 0.0f;
-   
-    processSequencer(sampleRate);
-        if (!sequencerEnabled_) {
-            processArpeggiator(sampleRate);
-        }
  
         // Generate LFO value
         float lfoValue = lfo_.process(sampleRate);
@@ -131,13 +133,12 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         sample = processDelay(sample, sampleRate);
         sample = processReverb(sample, sampleRate);
 
-        // Apply master headroom and gentle limiting to avoid attack clipping even without FX
+        // Apply master headroom and gentle limiting
         sample *= outputGain_;
         const float limiterThreshold = 0.9f;
         float absSample = std::fabs(sample);
         if (absSample > limiterThreshold) {
             float excess = absSample - limiterThreshold;
-            // Compress peaks beyond the threshold instead of hard clipping
             sample = (limiterThreshold + excess * 0.2f) * (sample < 0.0f ? -1.0f : 1.0f);
         }
 
@@ -161,7 +162,7 @@ void SynthEngine::noteOn(int midiNote) {
         return;
     }
 
-    // First check if this note is already playing - if so, retrigger it
+    // First check if this note is already playing
     Voice* existingVoice = findVoiceForNote(midiNote);
     if (existingVoice) {
         // Retrigger the existing voice
@@ -389,7 +390,6 @@ void SynthEngine::setArpeggiatorGate(float gate) {
 }
 
 void SynthEngine::setArpeggiatorSubdivision(int subdivision) {
-    // 0: half, 1: quarter, 2: eighth, 3: sixteenth
     int clamped = std::max(0, std::min(3, subdivision));
     switch (clamped) {
         case 0:
@@ -445,15 +445,21 @@ void SynthEngine::setSequencerStep(int index, int midiNote, bool active) {
     sequencerSteps_[index].active = active;
 }
 
-void SynthEngine::processArpeggiator(float sampleRate) {
+// CRITICAL FIX: Process arpeggiator ONCE per buffer, not per sample!
+void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
     if (!arpeggiatorEnabled_ || heldNotes_.empty()) {
         return;
     }
 
-    float stepDuration = (60.0f / std::max(20.0f, arpeggiatorRateBpm_)) * arpeggiatorStepMultiplier_;
+    // Increment counter by number of frames in this buffer
+    arpSampleCounter_ += numFrames;
+    
+    float stepDuration = (60.0f / arpeggiatorRateBpm_) * arpeggiatorStepMultiplier_;
+    float stepDurationSamples = stepDuration * sampleRate;
     float timeInStep = arpSampleCounter_ / sampleRate;
 
-    if (!arpNoteActive_) {
+    // Check if we need to trigger a new note
+    if (!arpNoteActive_ && arpSampleCounter_ >= 0) {
         int noteCount = static_cast<int>(heldNotes_.size());
         int idx = 0;
         switch (arpeggiatorPattern_) {
@@ -486,48 +492,41 @@ void SynthEngine::processArpeggiator(float sampleRate) {
         arpNoteActive_ = true;
     }
 
-    // CRITICAL FIX: Ensure gate time respects envelope attack/release times
-    // Calculate minimum gate time based on attack duration plus small buffer
-    float minGateTime = attack_ + 0.01f;  // Attack + 10ms buffer
-    
-    // Calculate desired gate time from user parameter
-    float desiredGateTime = stepDuration * arpeggiatorGate_;
-    
-    // Use the longer of the two to ensure envelope has time to work
-    float gateTime = std::max(minGateTime, desiredGateTime);
-    
-    // Only trigger note-off if:
-    // 1. We're past the gate time
-    // 2. There's enough time before the next step for a clean transition (5ms minimum)
-    float timeUntilNextStep = stepDuration - timeInStep;
-    if (arpNoteActive_ && timeInStep >= gateTime && timeUntilNextStep > 0.005f) {
+    // Check if we need to release the current note (gate)
+    float gateTimeSamples = stepDurationSamples * arpeggiatorGate_;
+    if (arpNoteActive_ && arpSampleCounter_ >= gateTimeSamples) {
         suppressArpCapture_ = true;
         noteOff(currentArpNote_);
         suppressArpCapture_ = false;
         arpNoteActive_ = false;
     }
 
-    if (timeInStep >= stepDuration) {
-        // Clean up any lingering notes at step boundary
+    // Check if we need to advance to next step
+    if (arpSampleCounter_ >= stepDurationSamples) {
+        // Make sure note is off before advancing
         if (arpNoteActive_) {
             suppressArpCapture_ = true;
             noteOff(currentArpNote_);
             suppressArpCapture_ = false;
+            arpNoteActive_ = false;
         }
-        arpSampleCounter_ = 0.0f;
+        
+        // Reset counter and advance
+        arpSampleCounter_ -= stepDurationSamples;
         arpIndex_ = (arpIndex_ + 1) % std::max<int>(1, heldNotes_.size());
-        arpNoteActive_ = false;
     }
-
-    arpSampleCounter_ += 1.0f;
 }
 
-void SynthEngine::processSequencer(float sampleRate) {
+// CRITICAL FIX: Process sequencer ONCE per buffer, not per sample!
+void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
     if (!sequencerEnabled_ || sequencerSteps_.empty()) {
         return;
     }
 
-    float beatSeconds = 60.0f / std::max(20.0f, sequencerTempoBpm_);
+    // Increment counter by number of frames in this buffer
+    sequencerSampleCounter_ += numFrames;
+
+    float beatSeconds = 60.0f / sequencerTempoBpm_;
     float lengthMultiplier = 1.0f;
     switch (sequencerStepLength_) {
         case SequencerStepLength::Eighth:
@@ -545,9 +544,10 @@ void SynthEngine::processSequencer(float sampleRate) {
     }
 
     float stepDuration = beatSeconds * lengthMultiplier;
-    float timeInStep = sequencerSampleCounter_ / sampleRate;
+    float stepDurationSamples = stepDuration * sampleRate;
 
-    if (!sequencerNoteActive_) {
+    // Check if we need to trigger a new note
+    if (!sequencerNoteActive_ && sequencerSampleCounter_ >= 0) {
         const auto& step = sequencerSteps_[sequencerCurrentStep_ % sequencerSteps_.size()];
         sequencerActiveNote_ = step.midiNote;
         if (step.active) {
@@ -558,36 +558,29 @@ void SynthEngine::processSequencer(float sampleRate) {
         }
     }
 
-    // CRITICAL FIX: Same envelope-aware gate timing as arpeggiator
-    // Calculate minimum gate time based on attack duration
-    float minGateTime = attack_ + 0.01f;
-    
-    // Use 90% of step duration as default gate, but respect minimum
-    float desiredGateTime = stepDuration * 0.9f;
-    float gateTime = std::max(minGateTime, desiredGateTime);
-    
-    // Ensure we don't exceed step duration
-    gateTime = std::min(gateTime, stepDuration - 0.005f);
-    
-    if (sequencerNoteActive_ && timeInStep >= gateTime) {
+    // Check if we need to release the current note (90% gate)
+    float gateTimeSamples = stepDurationSamples * 0.9f;
+    if (sequencerNoteActive_ && sequencerSampleCounter_ >= gateTimeSamples) {
         suppressArpCapture_ = true;
         noteOff(sequencerActiveNote_);
         suppressArpCapture_ = false;
         sequencerNoteActive_ = false;
     }
 
-    if (timeInStep >= stepDuration) {
+    // Check if we need to advance to next step
+    if (sequencerSampleCounter_ >= stepDurationSamples) {
+        // Make sure note is off before advancing
         if (sequencerNoteActive_) {
             suppressArpCapture_ = true;
             noteOff(sequencerActiveNote_);
             suppressArpCapture_ = false;
+            sequencerNoteActive_ = false;
         }
-        sequencerSampleCounter_ = 0.0f;
+        
+        // Reset counter and advance
+        sequencerSampleCounter_ -= stepDurationSamples;
         sequencerCurrentStep_ = (sequencerCurrentStep_ + 1) % sequencerSteps_.size();
-        sequencerNoteActive_ = false;
     }
-
-    sequencerSampleCounter_ += 1.0f;
 }
 
 void SynthEngine::configureSequenceLength() {
@@ -771,21 +764,18 @@ void SynthEngine::initializeEffects(float sampleRate) {
 
 
 Voice* SynthEngine::findFreeVoice() {
-    // First, try to find a completely inactive voice (not playing any note)
     for (auto& voice : voices_) {
         if (!voice.isNoteActive() && voice.getMidiNote() == -1) {
             return &voice;
         }
     }
     
-    // Second, try to find a voice that's releasing
     for (auto& voice : voices_) {
         if (!voice.isActive()) {
             return &voice;
         }
     }
     
-    // If no free voice, steal the oldest one (first in array)
     return &voices_[0];
 }
 
