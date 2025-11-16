@@ -18,6 +18,13 @@ enum class Waveform {
     TRIANGLE = 3
 };
 
+enum class SequencerStepLength {
+    Eighth = 0,
+    Quarter = 1,
+    Half = 2,
+    Whole = 3
+};
+
 /**
  * ADSR Envelope Generator
  */
@@ -348,6 +355,17 @@ public:
     void setReverbDamping(float damping);
     void setReverbMix(float mix);
 
+    void setArpeggiatorEnabled(bool enabled);
+    void setArpeggiatorPattern(int pattern);
+    void setArpeggiatorRate(float bpm);
+    void setArpeggiatorGate(float gate);
+
+    void setSequencerEnabled(bool enabled);
+    void setSequencerTempo(float bpm);
+    void setSequencerStepLength(int stepLength);
+    void setSequencerMeasures(int measures);
+    void setSequencerStep(int index, int midiNote, bool active);
+
 
 private:
     Voice* findFreeVoice();
@@ -357,6 +375,10 @@ private:
     float processChorus(float input, float sampleRate);
     float processReverb(float input, float sampleRate);
     void initializeEffects(float sampleRate);
+    void processArpeggiator(float sampleRate);
+    void processSequencer(float sampleRate);
+    void configureSequenceLength();
+    int getStepsPerMeasure() const;
 
     struct CombFilter {
         std::vector<float> buffer;
@@ -406,6 +428,28 @@ private:
     float reverbMix_;
     std::vector<CombFilter> reverbCombs_;
     std::vector<AllpassFilter> reverbAllpasses_;
+
+    bool arpeggiatorEnabled_ = false;
+    int arpeggiatorPattern_ = 0;
+    float arpeggiatorRateBpm_ = 120.0f;
+    float arpeggiatorGate_ = 0.5f;
+    std::vector<int> heldNotes_;
+    float arpSampleCounter_ = 0.0f;
+    int arpIndex_ = 0;
+    int currentArpNote_ = -1;
+    bool arpNoteActive_ = false;
+
+    bool sequencerEnabled_ = false;
+    float sequencerTempoBpm_ = 120.0f;
+    SequencerStepLength sequencerStepLength_ = SequencerStepLength::Eighth;
+    int sequencerMeasures_ = 4;
+    struct SequencerStep { int midiNote; bool active; };
+    std::vector<SequencerStep> sequencerSteps_;
+    float sequencerSampleCounter_ = 0.0f;
+    int sequencerCurrentStep_ = 0;
+    int sequencerActiveNote_ = -1;
+    bool sequencerNoteActive_ = false;
+    bool suppressArpCapture_ = false;
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
