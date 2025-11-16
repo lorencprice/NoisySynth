@@ -293,68 +293,7 @@ fun SynthScreen(synthEngine: SynthEngine) {
                                 synthEngine.setLFOAmount(it)
                             }
                         )
-                        5 -> EffectsTab(
-                            delayEnabled = delayEnabled,
-                            delayTime = delayTime,
-                            delayFeedback = delayFeedback,
-                            delayMix = delayMix,
-                            chorusEnabled = chorusEnabled,
-                            chorusRate = chorusRate,
-                            chorusDepth = chorusDepth,
-                            chorusMix = chorusMix,
-                            reverbEnabled = reverbEnabled,
-                            reverbSize = reverbSize,
-                            reverbDamping = reverbDamping,
-                            reverbMix = reverbMix,
-                            onDelayEnabledChange = {
-                                delayEnabled = it
-                                synthEngine.setDelayEnabled(it)
-                            },
-                            onDelayTimeChange = {
-                                delayTime = it
-                                synthEngine.setDelayTime(it)
-                            },
-                            onDelayFeedbackChange = {
-                                delayFeedback = it
-                                synthEngine.setDelayFeedback(it)
-                            },
-                            onDelayMixChange = {
-                                delayMix = it
-                                synthEngine.setDelayMix(it)
-                            },
-                            onChorusEnabledChange = {
-                                chorusEnabled = it
-                                synthEngine.setChorusEnabled(it)
-                            },
-                            onChorusRateChange = {
-                                chorusRate = it
-                                synthEngine.setChorusRate(it)
-                            },
-                            onChorusDepthChange = {
-                                chorusDepth = it
-                                synthEngine.setChorusDepth(it)
-                            },
-                            onChorusMixChange = {
-                                chorusMix = it
-                                synthEngine.setChorusMix(it)
-                            },
-                            onReverbEnabledChange = {
-                                reverbEnabled = it
-                                synthEngine.setReverbEnabled(it)
-                            },
-                            onReverbSizeChange = {
-                                reverbSize = it
-                                synthEngine.setReverbSize(it)
-                            },
-                            onReverbDampingChange = {
-                                reverbDamping = it
-                                synthEngine.setReverbDamping(it)
-                            },
-                            onReverbMixChange = {
-                                reverbMix = it
-                                synthEngine.setReverbMix(it)
-                            }
-                        )
+                        5 -> EffectsTab("debug")
                         6 -> ArpeggiatorTab(
                             enabled = arpeggiatorEnabled,
                             selectedPattern = arpeggiatorPattern,
