@@ -424,7 +424,6 @@ fun SynthScreen(synthEngine: SynthEngine) {
 
         // Bottom keyboard: full-width, instrument-style anchor
         SimpleKeyboard(
-            modifier = Modifier
                 .fillMaxWidth()
                 .height(120.dp),
             onNoteOn = { note -> synthEngine.noteOn(note) },
