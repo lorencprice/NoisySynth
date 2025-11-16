@@ -38,7 +38,9 @@ public:
     void setAttack(float attack) { attack_ = std::max(0.0001f, attack); }  // 0.1ms minimum
     void setDecay(float decay) { decay_ = std::max(0.0001f, decay); }
     void setSustain(float sustain) { sustain_ = std::max(0.0f, std::min(1.0f, sustain)); }
-    void setRelease(float release) { release_ = std::max(0.0001f, release); }  // 0.1ms minimum
+    // CRITICAL FIX: Ensure minimum release time to prevent clicks
+    // Even with 0.1ms minimum, we should enforce at least 5ms for clean releases
+    void setRelease(float release) { release_ = std::max(0.005f, release); }  // 5ms minimum
     
     void noteOn() {
         phase_ = Phase::ATTACK;
@@ -215,7 +217,8 @@ private:
 class Voice {
 public:
     Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
-              waveform_(Waveform::SAWTOOTH), clickSuppression_(0.0f), clickSuppressionSamples_(0) {}
+              waveform_(Waveform::SAWTOOTH), clickSuppression_(0.0f), clickSuppressionSamples_(0),
+              stopFadeoutSamples_(48) {}
     
     void noteOn(int midiNote, Waveform waveform) {
         midiNote_ = midiNote;
@@ -250,10 +253,24 @@ public:
     }
     
     float process(float sampleRate, float lfoValue) {
-        if (!ampEnvelope_.isActive() && !filterEnvelope_.isActive()) {
-            midiNote_ = -1; // Clear note assignment
-            wasRecentlyActive_ = false;
-            return 0.0f;
+        // Check if envelopes are done
+        bool envelopesActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
+        
+        if (!envelopesActive) {
+            // CRITICAL FIX: Don't immediately return 0.0!
+            // Add a very short fade-out (48 samples = 1ms at 48kHz)
+            if (stopFadeoutSamples_ > 0) {
+                // Still fading out
+                stopFadeoutSamples_--;
+            } else {
+                // Completely done
+                midiNote_ = -1;
+                wasRecentlyActive_ = false;
+                return 0.0f;
+            }
+        } else if (stopFadeoutSamples_ == 0) {
+            // Reset fade-out counter when envelopes are active
+            stopFadeoutSamples_ = 48; // 1ms fade-out
         }
         
         // Generate waveform
@@ -272,12 +289,17 @@ public:
             clickSuppressionSamples_--;
         }
         
+        // Apply fade-out when voice is stopping
+        if (!envelopesActive && stopFadeoutSamples_ > 0) {
+            float fadeout = stopFadeoutSamples_ / 48.0f;
+            sample *= fadeout;
+        }
+        
         // Get envelope values
         float ampEnvValue = ampEnvelope_.process(sampleRate);
         float filterEnvValue = filterEnvelope_.process(sampleRate);
         
         // Combine LFO and filter envelope for filter modulation
-        // Filter envelope gives upward modulation, LFO gives bipolar modulation
         float filterMod = (filterEnvValue * filterEnvAmount_) + lfoValue;
         
         // Apply filter with modulation
@@ -342,6 +364,7 @@ private:
     bool wasRecentlyActive_ = false;
     float clickSuppression_ = 0.0f;
     int clickSuppressionSamples_ = 0;
+    int stopFadeoutSamples_ = 48;
 };
 
 /**
@@ -488,6 +511,12 @@ private:
 
     // Output safety
     float outputGain_ = 0.65f;
+    
+    // Performance monitoring
+    long long callbackCount_ = 0;
+    double avgCallbackTime_ = 0.0;
+    double maxCallbackTime_ = 0.0;
+    int underrunCount_ = 0;
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
