@@ -17,16 +17,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-
 @Composable
 fun SynthScreen(synthEngine: SynthEngine) {
-    var waveform by remember { mutableStateOf(0) }
-    var filterCutoff by remember { mutableStateOf(0.5f) }
+
+    var waveform by remember { mutableStateOf("Saw") }
+    var filterCutoff by remember { mutableStateOf(2000f) }
     var filterResonance by remember { mutableStateOf(0.3f) }
+
     var attack by remember { mutableStateOf(0.01f) }
-    var decay by remember { mutableStateOf(0.1f) }
+    var decay by remember { mutableStateOf(0.2f) }
     var sustain by remember { mutableStateOf(0.7f) }
     var release by remember { mutableStateOf(0.3f) }
+
     var filterAttack by remember { mutableStateOf(0.01f) }
     var filterDecay by remember { mutableStateOf(0.2f) }
     var filterSustain by remember { mutableStateOf(0.5f) }
@@ -60,15 +62,18 @@ fun SynthScreen(synthEngine: SynthEngine) {
     var sequencerPattern by remember { mutableStateOf(0) }
     var sequencerTempo by remember { mutableStateOf(0.45f) }
     var sequencerStepLengthIndex by remember { mutableStateOf(1) }
-    var sequencerMeasuresIndex by remember { mutableStateOf(0) }
-    
+    var sequencerMeasuresIndex by remember { mutableStateOf(1) }
+
     val sequencerMeasureOptions = listOf(4, 8, 16)
 
-    fun stepsPerMeasure(stepLengthIndex: Int): Int = when (stepLengthIndex) {
-        0 -> 8
-        1 -> 4
-        2 -> 2
-        else -> 1
+    fun stepsPerMeasure(stepLengthIndexValue: Int): Int {
+        return when (stepLengthIndexValue) {
+            0 -> 16
+            1 -> 8
+            2 -> 4
+            3 -> 2
+            else -> 8
+        }
     }
 
     fun syncSequencerPattern(
@@ -105,10 +110,9 @@ fun SynthScreen(synthEngine: SynthEngine) {
         synthEngine.setSequencerTempo(55 + sequencerTempo * 135)
         syncSequencerPattern()
     }
-    
+
     var selectedTab by remember { mutableStateOf(0) }
-    
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -216,226 +220,225 @@ fun SynthScreen(synthEngine: SynthEngine) {
                         .padding(16.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    var error by remember { mutableStateOf<String?>(null) }
+                    var tabError by remember { mutableStateOf<String?>(null) }
 
-                    if (error == null) {
-                    try {
+                    if (tabError == null) {
+                        try {
+                            when (selectedTab) {
+                                0 -> OscillatorTab(
+                                    waveform = waveform,
+                                    onWaveformChange = {
+                                        waveform = it
+                                        synthEngine.setWaveform(it)
+                                    }
+                                )
+                                1 -> FilterTab(
+                                    cutoff = filterCutoff,
+                                    resonance = filterResonance,
+                                    onCutoffChange = {
+                                        filterCutoff = it
+                                        synthEngine.setFilterCutoff(it)
+                                    },
+                                    onResonanceChange = {
+                                        filterResonance = it
+                                        synthEngine.setFilterResonance(it)
+                                    }
+                                )
+                                2 -> EnvelopeTab(
+                                    attack = attack,
+                                    decay = decay,
+                                    sustain = sustain,
+                                    release = release,
+                                    onAttackChange = {
+                                        attack = it
+                                        synthEngine.setAttack(it * 2.0f)
+                                    },
+                                    onDecayChange = {
+                                        decay = it
+                                        synthEngine.setDecay(it * 2.0f)
+                                    },
+                                    onSustainChange = {
+                                        sustain = it
+                                        synthEngine.setSustain(it)
+                                    },
+                                    onReleaseChange = {
+                                        release = it
+                                        synthEngine.setRelease(it * 2.0f)
+                                    }
+                                )
+                                3 -> FilterEnvelopeTab(
+                                    attack = filterAttack,
+                                    decay = filterDecay,
+                                    sustain = filterSustain,
+                                    release = filterRelease,
+                                    amount = filterEnvAmount,
+                                    onAttackChange = {
+                                        filterAttack = it
+                                        synthEngine.setFilterAttack(it * 2.0f)
+                                    },
+                                    onDecayChange = {
+                                        filterDecay = it
+                                        synthEngine.setFilterDecay(it * 2.0f)
+                                    },
+                                    onSustainChange = {
+                                        filterSustain = it
+                                        synthEngine.setFilterSustain(it)
+                                    },
+                                    onReleaseChange = {
+                                        filterRelease = it
+                                        synthEngine.setFilterRelease(it * 2.0f)
+                                    },
+                                    onAmountChange = {
+                                        filterEnvAmount = it
+                                        synthEngine.setFilterEnvelopeAmount(it)
+                                    }
+                                )
+                                4 -> LFOTab(
+                                    rate = lfoRate,
+                                    amount = lfoAmount,
+                                    onRateChange = {
+                                        lfoRate = it * 10.0f
+                                        synthEngine.setLFORate(lfoRate)
+                                    },
+                                    onAmountChange = {
+                                        lfoAmount = it
+                                        synthEngine.setLFOAmount(it)
+                                    }
+                                )
+                                5 -> EffectsTab(
+                                    delayEnabled = delayEnabled,
+                                    delayTime = delayTime,
+                                    delayFeedback = delayFeedback,
+                                    delayMix = delayMix,
+                                    chorusEnabled = chorusEnabled,
+                                    chorusRate = chorusRate,
+                                    chorusDepth = chorusDepth,
+                                    chorusMix = chorusMix,
+                                    reverbEnabled = reverbEnabled,
+                                    reverbSize = reverbSize,
+                                    reverbDamping = reverbDamping,
+                                    reverbMix = reverbMix,
+                                    onDelayEnabledChange = {
+                                        delayEnabled = it
+                                        synthEngine.setDelayEnabled(it)
+                                    },
+                                    onDelayTimeChange = {
+                                        delayTime = it
+                                        synthEngine.setDelayTime(it)
+                                    },
+                                    onDelayFeedbackChange = {
+                                        delayFeedback = it
+                                        synthEngine.setDelayFeedback(it)
+                                    },
+                                    onDelayMixChange = {
+                                        delayMix = it
+                                        synthEngine.setDelayMix(it)
+                                    },
+                                    onChorusEnabledChange = {
+                                        chorusEnabled = it
+                                        synthEngine.setChorusEnabled(it)
+                                    },
+                                    onChorusRateChange = {
+                                        chorusRate = it
+                                        synthEngine.setChorusRate(it)
+                                    },
+                                    onChorusDepthChange = {
+                                        chorusDepth = it
+                                        synthEngine.setChorusDepth(it)
+                                    },
+                                    onChorusMixChange = {
+                                        chorusMix = it
+                                        synthEngine.setChorusMix(it)
+                                    },
+                                    onReverbEnabledChange = {
+                                        reverbEnabled = it
+                                        synthEngine.setReverbEnabled(it)
+                                    },
+                                    onReverbSizeChange = {
+                                        reverbSize = it
+                                        synthEngine.setReverbSize(it)
+                                    },
+                                    onReverbDampingChange = {
+                                        reverbDamping = it
+                                        synthEngine.setReverbDamping(it)
+                                    },
+                                    onReverbMixChange = {
+                                        reverbMix = it
+                                        synthEngine.setReverbMix(it)
+                                    }
+                                )
+                                6 -> ArpeggiatorTab(
+                                    enabled = arpeggiatorEnabled,
+                                    selectedPattern = arpeggiatorPattern,
+                                    tempo = arpeggiatorTempo,
+                                    gate = arpeggiatorGate,
+                                    subdivisionIndex = arpeggiatorSubdivisionIndex,
+                                    onEnabledChange = {
+                                        arpeggiatorEnabled = it
+                                        synthEngine.setArpeggiatorEnabled(it)
+                                    },
+                                    onPatternChange = {
+                                        arpeggiatorPattern = it
+                                        synthEngine.setArpeggiatorPattern(it)
+                                    },
+                                    onTempoChange = {
+                                        arpeggiatorTempo = it
+                                        synthEngine.setArpeggiatorRate(60 + it * 120)
+                                    },
+                                    onGateChange = {
+                                        arpeggiatorGate = it
+                                        synthEngine.setArpeggiatorGate(0.2f + it * 0.8f)
+                                    },
+                                    onSubdivisionChange = { index ->
+                                        arpeggiatorSubdivisionIndex = index
+                                        synthEngine.setArpeggiatorSubdivision(index)
+                                    }
+                                )
+                                7 -> SequencerTab(
+                                    enabled = sequencerEnabled,
+                                    selectedPattern = sequencerPattern,
+                                    tempo = sequencerTempo,
+                                    stepLengthIndex = sequencerStepLengthIndex,
+                                    measuresIndex = sequencerMeasuresIndex,
+                                    onEnabledChange = {
+                                        sequencerEnabled = it
+                                        synthEngine.setSequencerEnabled(it)
+                                    },
+                                    onPatternChange = {
+                                        sequencerPattern = it
+                                        syncSequencerPattern(patternIndex = it)
+                                    },
+                                    onTempoChange = {
+                                        sequencerTempo = it
+                                        synthEngine.setSequencerTempo(55 + it * 135)
+                                    },
+                                    onStepLengthChange = { index ->
+                                        sequencerStepLengthIndex = index
+                                        synthEngine.setSequencerStepLength(index)
+                                        syncSequencerPattern(stepLengthIndexValue = index)
+                                    },
+                                    onMeasuresChange = { index ->
+                                        sequencerMeasuresIndex = index
+                                        synthEngine.setSequencerMeasures(sequencerMeasureOptions[index])
+                                        syncSequencerPattern(measureIndex = index)
+                                    }
+                                )
+                            }
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            tabError = e.toString()
+                        }
+                    }
 
-                    when (selectedTab) {
-                        0 -> OscillatorTab(
-                            waveform = waveform,
-                            onWaveformChange = {
-                                waveform = it
-                                synthEngine.setWaveform(it)
-                            }
+                    if (tabError != null) {
+                        Text(
+                            text = "Tab error:\n$tabError",
+                            color = MaterialTheme.colorScheme.error
                         )
-                        1 -> FilterTab(
-                            cutoff = filterCutoff,
-                            resonance = filterResonance,
-                            onCutoffChange = {
-                                filterCutoff = it
-                                synthEngine.setFilterCutoff(it)
-                            },
-                            onResonanceChange = {
-                                filterResonance = it
-                                synthEngine.setFilterResonance(it)
-                            }
-                        )
-                        2 -> EnvelopeTab(
-                            attack = attack,
-                            decay = decay,
-                            sustain = sustain,
-                            release = release,
-                            onAttackChange = {
-                                attack = it
-                                synthEngine.setAttack(it * 2.0f)
-                            },
-                            onDecayChange = {
-                                decay = it
-                                synthEngine.setDecay(it * 2.0f)
-                            },
-                            onSustainChange = {
-                                sustain = it
-                                synthEngine.setSustain(it)
-                            },
-                            onReleaseChange = {
-                                release = it
-                                synthEngine.setRelease(it * 2.0f)
-                            }
-                        )
-                        3 -> FilterEnvelopeTab(
-                            attack = filterAttack,
-                            decay = filterDecay,
-                            sustain = filterSustain,
-                            release = filterRelease,
-                            amount = filterEnvAmount,
-                            onAttackChange = {
-                                filterAttack = it
-                                synthEngine.setFilterAttack(it * 2.0f)
-                            },
-                            onDecayChange = {
-                                filterDecay = it
-                                synthEngine.setFilterDecay(it * 2.0f)
-                            },
-                            onSustainChange = {
-                                filterSustain = it
-                                synthEngine.setFilterSustain(it)
-                            },
-                            onReleaseChange = {
-                                filterRelease = it
-                                synthEngine.setFilterRelease(it * 2.0f)
-                            },
-                            onAmountChange = {
-                                filterEnvAmount = it
-                                synthEngine.setFilterEnvelopeAmount(it)
-                            }
-                        )
-                        4 -> LFOTab(
-                            rate = lfoRate,
-                            amount = lfoAmount,
-                            onRateChange = {
-                                lfoRate = it * 10.0f
-                                synthEngine.setLFORate(lfoRate)
-                            },
-                            onAmountChange = {
-                                lfoAmount = it
-                                synthEngine.setLFOAmount(it)
-                            }
-                        )
-                        5 -> EffectsTab(
-                            delayEnabled = delayEnabled,
-                            delayTime = delayTime,
-                            delayFeedback = delayFeedback,
-                            delayMix = delayMix,
-                            chorusEnabled = chorusEnabled,
-                            chorusRate = chorusRate,
-                            chorusDepth = chorusDepth,
-                            chorusMix = chorusMix,
-                            reverbEnabled = reverbEnabled,
-                            reverbSize = reverbSize,
-                            reverbDamping = reverbDamping,
-                            reverbMix = reverbMix,
-                            onDelayEnabledChange = {
-                                delayEnabled = it
-                                synthEngine.setDelayEnabled(it)
-                            },
-                            onDelayTimeChange = {
-                                delayTime = it
-                                synthEngine.setDelayTime(it)
-                            },
-                            onDelayFeedbackChange = {
-                                delayFeedback = it
-                                synthEngine.setDelayFeedback(it)
-                            },
-                            onDelayMixChange = {
-                                delayMix = it
-                                synthEngine.setDelayMix(it)
-                            },
-                            onChorusEnabledChange = {
-                                chorusEnabled = it
-                                synthEngine.setChorusEnabled(it)
-                            },
-                            onChorusRateChange = {
-                                chorusRate = it
-                                synthEngine.setChorusRate(it)
-                            },
-                            onChorusDepthChange = {
-                                chorusDepth = it
-                                synthEngine.setChorusDepth(it)
-                            },
-                            onChorusMixChange = {
-                                chorusMix = it
-                                synthEngine.setChorusMix(it)
-                            },
-                            onReverbEnabledChange = {
-                                reverbEnabled = it
-                                synthEngine.setReverbEnabled(it)
-                            },
-                            onReverbSizeChange = {
-                                reverbSize = it
-                                synthEngine.setReverbSize(it)
-                            },
-                            onReverbDampingChange = {
-                                reverbDamping = it
-                                synthEngine.setReverbDamping(it)
-                            },
-                            onReverbMixChange = {
-                                reverbMix = it
-                                synthEngine.setReverbMix(it)
-                            }
-                        )
-                        6 -> ArpeggiatorTab(
-                            enabled = arpeggiatorEnabled,
-                            selectedPattern = arpeggiatorPattern,
-                            tempo = arpeggiatorTempo,
-                            gate = arpeggiatorGate,
-                            subdivisionIndex = arpeggiatorSubdivisionIndex,
-                            onEnabledChange = {
-                                arpeggiatorEnabled = it
-                                synthEngine.setArpeggiatorEnabled(it)
-                            },
-                            onPatternChange = {
-                                arpeggiatorPattern = it
-                                synthEngine.setArpeggiatorPattern(it)
-                            },
-                            onTempoChange = {
-                                arpeggiatorTempo = it
-                                synthEngine.setArpeggiatorRate(60 + it * 120)
-                            },
-                            onGateChange = {
-                                arpeggiatorGate = it
-                                synthEngine.setArpeggiatorGate(0.2f + it * 0.8f)
-                            },
-                            onSubdivisionChange = { index ->
-                                arpeggiatorSubdivisionIndex = index
-                                synthEngine.setArpeggiatorSubdivision(index)
-                            }
-                        )
-                        7 -> SequencerTab(
-                            enabled = sequencerEnabled,
-                            selectedPattern = sequencerPattern,
-                            tempo = sequencerTempo,
-                            stepLengthIndex = sequencerStepLengthIndex,
-                            measuresIndex = sequencerMeasuresIndex,
-                            onEnabledChange = {
-                                sequencerEnabled = it
-                                synthEngine.setSequencerEnabled(it)
-                            },
-                            onPatternChange = {
-                                sequencerPattern = it
-                                syncSequencerPattern(patternIndex = it)
-                            },
-                            onTempoChange = {
-                                sequencerTempo = it
-                                synthEngine.setSequencerTempo(55 + it * 135)
-                            },
-                            onStepLengthChange = { index ->
-                                sequencerStepLengthIndex = index
-                                synthEngine.setSequencerStepLength(index)
-                                syncSequencerPattern(stepLengthIndexValue = index)
-                            },
-                            onMeasuresChange = { index ->
-                                sequencerMeasuresIndex = index
-                                synthEngine.setSequencerMeasures(sequencerMeasureOptions[index])
-                                syncSequencerPattern(measureIndex = index)
-                            }
-                        )
-                    }; catch (e: Exception) {
-                          e.printStackTrace()
-                          error = e.toString()
                     }
                 }
-
-                if (error != null) {
-                    Text(
-                        text = "Tab error:\n$error",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
             }
         }
-    }
 
         Spacer(modifier = Modifier.height(8.dp))
 
