@@ -359,6 +359,7 @@ public:
     void setArpeggiatorPattern(int pattern);
     void setArpeggiatorRate(float bpm);
     void setArpeggiatorGate(float gate);
+    void setArpeggiatorSubdivision(int subdivision);
 
     void setSequencerEnabled(bool enabled);
     void setSequencerTempo(float bpm);
@@ -433,6 +434,7 @@ private:
     int arpeggiatorPattern_ = 0;
     float arpeggiatorRateBpm_ = 120.0f;
     float arpeggiatorGate_ = 0.5f;
+    float arpeggiatorStepMultiplier_ = 1.0f;
     std::vector<int> heldNotes_;
     float arpSampleCounter_ = 0.0f;
     int arpIndex_ = 0;
@@ -450,6 +452,9 @@ private:
     int sequencerActiveNote_ = -1;
     bool sequencerNoteActive_ = false;
     bool suppressArpCapture_ = false;
+
+    // Output safety
+    float outputGain_ = 0.65f;
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
