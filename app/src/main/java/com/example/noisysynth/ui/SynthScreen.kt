@@ -216,6 +216,11 @@ fun SynthScreen(synthEngine: SynthEngine) {
                         .padding(16.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
+                    var error by remember { mutableStateOf<String?>(null) }
+
+                    if (error == null) {
+                    try {
+
                     when (selectedTab) {
                         0 -> OscillatorTab(
                             waveform = waveform,
@@ -415,10 +420,22 @@ fun SynthScreen(synthEngine: SynthEngine) {
                                 syncSequencerPattern(measureIndex = index)
                             }
                         )
+                    } catch (e: Exception) {
+                          e.printStackTrace()
+                          error = e.toString()
                     }
                 }
+
+                if (error != null) {
+                    Text(
+                        text = "Tab error:\n$error",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+
             }
         }
+    }
 
         Spacer(modifier = Modifier.height(8.dp))
 
