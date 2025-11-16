@@ -109,7 +109,7 @@ fun SynthScreen(synthEngine: SynthEngine) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // Fixed Header with Title and Keyboard
+        // Fixed Header with Title
         Surface(
             modifier = Modifier.fillMaxWidth(),
             tonalElevation = 4.dp,
@@ -188,7 +188,7 @@ fun SynthScreen(synthEngine: SynthEngine) {
         // Tab Content
         Box(
             modifier = Modifier
-                .weight(1f) 
+                .weight(1f)
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
@@ -406,8 +406,8 @@ fun SynthScreen(synthEngine: SynthEngine) {
                     .padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-         // Keyboard
-                SimpleKeyboard(
+         // Piano Keyboard
+                SimplePianoKeyboard(
                     onNoteOn = { note -> synthEngine.noteOn(note) },
                     onNoteOff = { note -> synthEngine.noteOff(note) }
                 )
