@@ -45,6 +45,7 @@ class SynthEngine {
     private external fun native_setArpeggiatorPattern(engineHandle: Long, pattern: Int)
     private external fun native_setArpeggiatorRate(engineHandle: Long, bpm: Float)
     private external fun native_setArpeggiatorGate(engineHandle: Long, gate: Float)
+    private external fun native_setArpeggiatorSubdivision(engineHandle: Long, subdivision: Int)
     private external fun native_setSequencerEnabled(engineHandle: Long, enabled: Boolean)
     private external fun native_setSequencerTempo(engineHandle: Long, bpm: Float)
     private external fun native_setSequencerStepLength(engineHandle: Long, stepLength: Int)
@@ -180,6 +181,10 @@ class SynthEngine {
 
     fun setArpeggiatorGate(gate: Float) {
         native_setArpeggiatorGate(engineHandle, gate)
+    }
+
+    fun setArpeggiatorSubdivision(subdivision: Int) {
+        native_setArpeggiatorSubdivision(engineHandle, subdivision)
     }
 
     fun setSequencerEnabled(enabled: Boolean) {
