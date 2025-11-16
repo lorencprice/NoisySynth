@@ -511,12 +511,6 @@ private:
 
     // Output safety
     float outputGain_ = 0.65f;
-    
-    // Performance monitoring
-    long long callbackCount_ = 0;
-    double avgCallbackTime_ = 0.0;
-    double maxCallbackTime_ = 0.0;
-    int underrunCount_ = 0;
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
