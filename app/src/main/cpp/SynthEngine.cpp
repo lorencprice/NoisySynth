@@ -131,7 +131,16 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         sample = processDelay(sample, sampleRate);
         sample = processReverb(sample, sampleRate);
 
-        
+        // Apply master headroom and gentle limiting to avoid attack clipping even without FX
+        sample *= outputGain_;
+        const float limiterThreshold = 0.9f;
+        float absSample = std::fabs(sample);
+        if (absSample > limiterThreshold) {
+            float excess = absSample - limiterThreshold;
+            // Compress peaks beyond the threshold instead of hard clipping
+            sample = (limiterThreshold + excess * 0.2f) * (sample < 0.0f ? -1.0f : 1.0f);
+        }
+
         // Soft clipping / saturation
         sample = std::tanh(sample * 0.7f);
         
@@ -379,6 +388,26 @@ void SynthEngine::setArpeggiatorGate(float gate) {
     arpeggiatorGate_ = std::max(0.05f, std::min(1.0f, gate));
 }
 
+void SynthEngine::setArpeggiatorSubdivision(int subdivision) {
+    // 0: half, 1: quarter, 2: eighth, 3: sixteenth
+    int clamped = std::max(0, std::min(3, subdivision));
+    switch (clamped) {
+        case 0:
+            arpeggiatorStepMultiplier_ = 2.0f;
+            break;
+        case 2:
+            arpeggiatorStepMultiplier_ = 0.5f;
+            break;
+        case 3:
+            arpeggiatorStepMultiplier_ = 0.25f;
+            break;
+        case 1:
+        default:
+            arpeggiatorStepMultiplier_ = 1.0f;
+            break;
+    }
+}
+
 void SynthEngine::setSequencerEnabled(bool enabled) {
     if (!enabled && sequencerNoteActive_) {
         suppressArpCapture_ = true;
@@ -421,7 +450,7 @@ void SynthEngine::processArpeggiator(float sampleRate) {
         return;
     }
 
-    float stepDuration = 60.0f / std::max(20.0f, arpeggiatorRateBpm_);
+    float stepDuration = (60.0f / std::max(20.0f, arpeggiatorRateBpm_)) * arpeggiatorStepMultiplier_;
     float timeInStep = arpSampleCounter_ / sampleRate;
 
     if (!arpNoteActive_) {
