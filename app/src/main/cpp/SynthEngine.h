@@ -31,7 +31,7 @@ enum class SequencerStepLength {
 class Envelope {
 public:
     Envelope() : attack_(0.01f), decay_(0.1f), sustain_(0.7f), release_(0.3f),
-                 phase_(Phase::IDLE), level_(0.0f), time_(0.0f) {}
+                 phase_(Phase::IDLE), level_(0.0f), time_(0.0f), releaseStartLevel_(0.0f) {}
     
     void setAttack(float attack) { attack_ = std::max(0.001f, attack); }
     void setDecay(float decay) { decay_ = std::max(0.001f, decay); }
@@ -41,12 +41,14 @@ public:
     void noteOn() {
         phase_ = Phase::ATTACK;
         time_ = 0.0f;
+        releaseStartLevel_ = level_;
     }
     
     void noteOff() {
         if (phase_ != Phase::IDLE && phase_ != Phase::RELEASE) {
             phase_ = Phase::RELEASE;
             time_ = 0.0f;
+            releaseStartLevel_ = level_;
         }
     }
     
@@ -77,7 +79,7 @@ public:
                 break;
                 
             case Phase::RELEASE:
-                level_ = sustain_ * (1.0f - time_ / release_);
+                level_ = releaseStartLevel_ * (1.0f - time_ / release_);
                 if (time_ >= release_ || level_ <= 0.0001f) {
                     phase_ = Phase::IDLE;
                     level_ = 0.0f;
@@ -110,6 +112,7 @@ private:
     Phase phase_;
     float level_;
     float time_;
+    float releaseStartLevel_;
 };
 
 /**
