@@ -30,74 +30,98 @@ enum class SequencerStepLength {
  */
 class Envelope {
 public:
-    Envelope() : attack_(0.01f), decay_(0.1f), sustain_(0.7f), release_(0.3f),
-                 phase_(Phase::IDLE), level_(0.0f), time_(0.0f) {}
-    
-    // CRITICAL FIX: Reduce minimum attack/release times for arpeggiator/sequencer
-    // Old minimum was 0.001f (1ms), which was too restrictive
-    void setAttack(float attack) { attack_ = std::max(0.0001f, attack); }  // 0.1ms minimum
-    void setDecay(float decay) { decay_ = std::max(0.0001f, decay); }
-    void setSustain(float sustain) { sustain_ = std::max(0.0f, std::min(1.0f, sustain)); }
-    // CRITICAL FIX: Ensure minimum release time to prevent clicks
-    // Even with 0.1ms minimum, we should enforce at least 5ms for clean releases
-    void setRelease(float release) { release_ = std::max(0.005f, release); }  // 5ms minimum
-    
+    Envelope()
+        : attack_(0.01f)
+        , decay_(0.1f)
+        , sustain_(0.7f)
+        , release_(0.3f)
+        , phase_(Phase::IDLE)
+        , level_(0.0f)
+        , time_(0.0f)
+        , attackStartLevel_(0.0f)
+        , releaseStartLevel_(0.0f)
+    {}
+
+    // Minimum times chosen to avoid zipper/clicks even at very short notes
+    void setAttack(float attack)  { attack_  = std::max(0.0001f, attack); }   // >= 0.1 ms
+    void setDecay(float decay)    { decay_   = std::max(0.0001f, decay); }
+    void setSustain(float sustain){ sustain_ = std::max(0.0f, std::min(1.0f, sustain)); }
+    void setRelease(float release){ release_ = std::max(0.005f,  release); }  // >= 5 ms
+
     void noteOn() {
+        // Start a new attack from the CURRENT level to keep continuity
+        attackStartLevel_ = level_;
         phase_ = Phase::ATTACK;
         time_ = 0.0f;
     }
-    
+
     void noteOff() {
         if (phase_ != Phase::IDLE && phase_ != Phase::RELEASE) {
+            // Release starts from the current level for smooth decay
+            releaseStartLevel_ = level_;
             phase_ = Phase::RELEASE;
             time_ = 0.0f;
         }
     }
-    
+
     float process(float sampleRate) {
         float dt = 1.0f / sampleRate;
         time_ += dt;
-        
+
         switch (phase_) {
             case Phase::ATTACK:
-                level_ = time_ / attack_;
+            {
+                float t = (attack_ > 0.0f) ? (time_ / attack_) : 1.0f;
+                t = std::max(0.0f, std::min(1.0f, t));
+                level_ = attackStartLevel_ + (1.0f - attackStartLevel_) * t;
                 if (time_ >= attack_) {
                     phase_ = Phase::DECAY;
                     time_ = 0.0f;
                     level_ = 1.0f;
                 }
                 break;
-                
+            }
+
             case Phase::DECAY:
-                level_ = 1.0f - (1.0f - sustain_) * (time_ / decay_);
+            {
+                float t = (decay_ > 0.0f) ? (time_ / decay_) : 1.0f;
+                t = std::max(0.0f, std::min(1.0f, t));
+                // Exponential-ish decay from 1.0 down to sustain_
+                level_ = 1.0f - (1.0f - sustain_) * t;
                 if (time_ >= decay_) {
                     phase_ = Phase::SUSTAIN;
                     level_ = sustain_;
                 }
                 break;
-                
+            }
+
             case Phase::SUSTAIN:
                 level_ = sustain_;
                 break;
-                
+
             case Phase::RELEASE:
-                level_ = sustain_ * (1.0f - time_ / release_);
+            {
+                float t = (release_ > 0.0f) ? (time_ / release_) : 1.0f;
+                t = std::max(0.0f, std::min(1.0f, t));
+                // Smooth decay from the level at noteOff down to 0
+                level_ = releaseStartLevel_ * (1.0f - t);
                 if (time_ >= release_ || level_ <= 0.0001f) {
                     phase_ = Phase::IDLE;
                     level_ = 0.0f;
                 }
                 break;
-                
+            }
+
             case Phase::IDLE:
                 level_ = 0.0f;
                 break;
         }
-        
+
         return std::max(0.0f, std::min(1.0f, level_));
     }
-    
+
     bool isActive() const { return phase_ != Phase::IDLE; }
-    
+
 private:
     enum class Phase {
         IDLE,
@@ -106,6 +130,20 @@ private:
         SUSTAIN,
         RELEASE
     };
+
+    float attack_;
+    float decay_;
+    float sustain_;
+    float release_;
+
+    Phase phase_;
+    float level_;
+    float time_;
+
+    // For click-free retriggers and releases
+    float attackStartLevel_;
+    float releaseStartLevel_;
+};
     
     float attack_;
     float decay_;
