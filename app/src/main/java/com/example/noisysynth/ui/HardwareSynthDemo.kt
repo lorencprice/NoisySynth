@@ -35,22 +35,21 @@ fun HardwareSynthDemo(synthEngine: SynthEngine) {
     var filterEnvAmount by remember { mutableStateOf(0.5f) }
     var lfoRate by remember { mutableStateOf(2.0f) }
     var lfoAmount by remember { mutableStateOf(0.0f) }
-
+    
     var delayEnabled by remember { mutableStateOf(false) }
     var delayTime by remember { mutableStateOf(0.35f) }
     var delayFeedback by remember { mutableStateOf(0.4f) }
     var delayMix by remember { mutableStateOf(0.3f) }
-    
+
     var chorusEnabled by remember { mutableStateOf(false) }
     var chorusRate by remember { mutableStateOf(0.25f) }
     var chorusDepth by remember { mutableStateOf(0.3f) }
     var chorusMix by remember { mutableStateOf(0.25f) }
-    
+
     var reverbEnabled by remember { mutableStateOf(false) }
     var reverbSize by remember { mutableStateOf(0.6f) }
     var reverbDamping by remember { mutableStateOf(0.35f) }
     var reverbMix by remember { mutableStateOf(0.4f) }
-    
 
     Column(
         modifier = Modifier
@@ -174,7 +173,7 @@ fun HardwareSynthDemo(synthEngine: SynthEngine) {
                 )
             }
 
-            // Row 2: Envelopes
+            // Row 2: Envelopes + Effects
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -231,7 +230,7 @@ fun HardwareSynthDemo(synthEngine: SynthEngine) {
                     modifier = Modifier.weight(1f)
                 )
 
-                 HardwareEffectsModule(
+                HardwareEffectsModule(
                     delayEnabled = delayEnabled,
                     delayTime = delayTime,
                     delayFeedback = delayFeedback,
@@ -294,6 +293,8 @@ fun HardwareSynthDemo(synthEngine: SynthEngine) {
                     },
                     modifier = Modifier.weight(1f)
                 )
+            }
+        }
 
         // Piano Keyboard
         Surface(
