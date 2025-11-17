@@ -335,6 +335,9 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                         }
                     )
                 }
+                
+                // Empty spacer to match 3-column layout
+                Spacer(modifier = Modifier.weight(1f))
             }
 
             // Effects + Sequencing
@@ -625,6 +628,9 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                         }
                     }
                 }
+                
+                // Empty spacer to match 3-column layout
+                Spacer(modifier = Modifier.weight(1f))
             }
         }
 
