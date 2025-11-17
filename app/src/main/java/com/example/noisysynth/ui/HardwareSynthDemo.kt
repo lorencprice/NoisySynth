@@ -35,9 +35,22 @@ fun HardwareSynthDemo(synthEngine: SynthEngine) {
     var filterEnvAmount by remember { mutableStateOf(0.5f) }
     var lfoRate by remember { mutableStateOf(2.0f) }
     var lfoAmount by remember { mutableStateOf(0.0f) }
+
     var delayEnabled by remember { mutableStateOf(false) }
+    var delayTime by remember { mutableStateOf(0.35f) }
+    var delayFeedback by remember { mutableStateOf(0.4f) }
+    var delayMix by remember { mutableStateOf(0.3f) }
+    
     var chorusEnabled by remember { mutableStateOf(false) }
+    var chorusRate by remember { mutableStateOf(0.25f) }
+    var chorusDepth by remember { mutableStateOf(0.3f) }
+    var chorusMix by remember { mutableStateOf(0.25f) }
+    
     var reverbEnabled by remember { mutableStateOf(false) }
+    var reverbSize by remember { mutableStateOf(0.6f) }
+    var reverbDamping by remember { mutableStateOf(0.35f) }
+    var reverbMix by remember { mutableStateOf(0.4f) }
+    
 
     Column(
         modifier = Modifier
@@ -218,26 +231,69 @@ fun HardwareSynthDemo(synthEngine: SynthEngine) {
                     modifier = Modifier.weight(1f)
                 )
 
-                HardwareEffectsModule(
+                 HardwareEffectsModule(
                     delayEnabled = delayEnabled,
-                    chorusEnabled = chorusEnabled,
-                    reverbEnabled = reverbEnabled,
-                    onDelayChange = {
+                    delayTime = delayTime,
+                    delayFeedback = delayFeedback,
+                    delayMix = delayMix,
+                    onDelayEnabledChange = {
                         delayEnabled = it
                         synthEngine.setDelayEnabled(it)
                     },
-                    onChorusChange = {
+                    onDelayTimeChange = {
+                        delayTime = it
+                        synthEngine.setDelayTime(it)
+                    },
+                    onDelayFeedbackChange = {
+                        delayFeedback = it
+                        synthEngine.setDelayFeedback(it)
+                    },
+                    onDelayMixChange = {
+                        delayMix = it
+                        synthEngine.setDelayMix(it)
+                    },
+                    chorusEnabled = chorusEnabled,
+                    chorusRate = chorusRate,
+                    chorusDepth = chorusDepth,
+                    chorusMix = chorusMix,
+                    onChorusEnabledChange = {
                         chorusEnabled = it
                         synthEngine.setChorusEnabled(it)
                     },
-                    onReverbChange = {
+                    onChorusRateChange = {
+                        chorusRate = it
+                        synthEngine.setChorusRate(it)
+                    },
+                    onChorusDepthChange = {
+                        chorusDepth = it
+                        synthEngine.setChorusDepth(it)
+                    },
+                    onChorusMixChange = {
+                        chorusMix = it
+                        synthEngine.setChorusMix(it)
+                    },
+                    reverbEnabled = reverbEnabled,
+                    reverbSize = reverbSize,
+                    reverbDamping = reverbDamping,
+                    reverbMix = reverbMix,
+                    onReverbEnabledChange = {
                         reverbEnabled = it
                         synthEngine.setReverbEnabled(it)
                     },
+                    onReverbSizeChange = {
+                        reverbSize = it
+                        synthEngine.setReverbSize(it)
+                    },
+                    onReverbDampingChange = {
+                        reverbDamping = it
+                        synthEngine.setReverbDamping(it)
+                    },
+                    onReverbMixChange = {
+                        reverbMix = it
+                        synthEngine.setReverbMix(it)
+                    },
                     modifier = Modifier.weight(1f)
                 )
-            }
-        }
 
         // Piano Keyboard
         Surface(
