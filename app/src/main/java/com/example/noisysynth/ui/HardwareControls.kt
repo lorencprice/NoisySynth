@@ -131,7 +131,10 @@ fun RotaryKnob(
                         onDragCancel = { isDragging = false }
                     ) { change, dragAmount ->
                         change.consume()
-                        val delta = -dragAmount.y / 100f // Vertical drag
+                        // Only respond to vertical movement (up/down)
+                        // Swipe UP = increase, Swipe DOWN = decrease
+                        // Much higher sensitivity for smoother, easier control
+                        val delta = -dragAmount.y / 250f // Very sensitive
                         val newValue = (value + delta).coerceIn(0f, 1f)
                         onValueChange(newValue)
                     }
@@ -284,7 +287,7 @@ fun VerticalFader(
                     .fillMaxWidth(0.9f)
                     .height(12.dp)
                     .align(Alignment.BottomCenter)
-                    .offset(y = -(height * (1f - value)).dp + 6.dp)
+                    .offset(y = -(height * value).dp + 6.dp)
                     .shadow(4.dp, RoundedCornerShape(6.dp))
                     .background(
                         brush = Brush.horizontalGradient(
