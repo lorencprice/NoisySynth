@@ -632,7 +632,7 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp),
+                .height(110.dp),
             tonalElevation = 4.dp,
             shadowElevation = 8.dp
         ) {
@@ -645,7 +645,8 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
             ) {
                 SimplePianoKeyboard(
                     onNoteOn = { note -> synthEngine.noteOn(note) },
-                    onNoteOff = { note -> synthEngine.noteOff(note) }
+                    onNoteOff = { note -> synthEngine.noteOff(note) },
+                    height = 90
                 )
             }
         }
