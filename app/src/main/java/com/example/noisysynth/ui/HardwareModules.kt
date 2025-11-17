@@ -202,47 +202,197 @@ fun HardwareLFOModule(
 }
 
 /**
- * Example: Effects module with switches
+ * Effects module with tabs for different effects
  */
 @Composable
 fun HardwareEffectsModule(
     delayEnabled: Boolean,
+    delayTime: Float,
+    delayFeedback: Float,
+    delayMix: Float,
+    onDelayEnabledChange: (Boolean) -> Unit,
+    onDelayTimeChange: (Float) -> Unit,
+    onDelayFeedbackChange: (Float) -> Unit,
+    onDelayMixChange: (Float) -> Unit,
     chorusEnabled: Boolean,
+    chorusRate: Float,
+    chorusDepth: Float,
+    chorusMix: Float,
+    onChorusEnabledChange: (Boolean) -> Unit,
+    onChorusRateChange: (Float) -> Unit,
+    onChorusDepthChange: (Float) -> Unit,
+    onChorusMixChange: (Float) -> Unit,
     reverbEnabled: Boolean,
-    onDelayChange: (Boolean) -> Unit,
-    onChorusChange: (Boolean) -> Unit,
-    onReverbChange: (Boolean) -> Unit,
+    reverbSize: Float,
+    reverbDamping: Float,
+    reverbMix: Float,
+    onReverbEnabledChange: (Boolean) -> Unit,
+    onReverbSizeChange: (Float) -> Unit,
+    onReverbDampingChange: (Float) -> Unit,
+    onReverbMixChange: (Float) -> Unit,
     accentColor: Color = Color(0xFFE91E63),
     modifier: Modifier = Modifier
 ) {
+    var selectedEffect by remember { mutableStateOf(0) }
+    
     HardwareModulePanel(
         title = "EFFECTS",
         accentColor = accentColor,
         modifier = modifier
     ) {
-        HardwareSwitch(
-            label = "DELAY",
-            checked = delayEnabled,
-            onCheckedChange = onDelayChange,
-            accentColor = accentColor
-        )
+        // Effect selector tabs
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            HardwareButton(
+                text = "DLY",
+                selected = selectedEffect == 0,
+                onClick = { selectedEffect = 0 },
+                accentColor = accentColor,
+                modifier = Modifier.weight(1f)
+            )
+            HardwareButton(
+                text = "CHR",
+                selected = selectedEffect == 1,
+                onClick = { selectedEffect = 1 },
+                accentColor = accentColor,
+                modifier = Modifier.weight(1f)
+            )
+            HardwareButton(
+                text = "REV",
+                selected = selectedEffect == 2,
+                onClick = { selectedEffect = 2 },
+                accentColor = accentColor,
+                modifier = Modifier.weight(1f)
+            )
+        }
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        HardwareSwitch(
-            label = "CHORUS",
-            checked = chorusEnabled,
-            onCheckedChange = onChorusChange,
-            accentColor = accentColor
-        )
-        
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        HardwareSwitch(
-            label = "REVERB",
-            checked = reverbEnabled,
-            onCheckedChange = onReverbChange,
-            accentColor = accentColor
-        )
+        // Effect controls based on selection
+        when (selectedEffect) {
+            0 -> {
+                // DELAY
+                HardwareSwitch(
+                    label = "DELAY",
+                    checked = delayEnabled,
+                    onCheckedChange = onDelayEnabledChange,
+                    accentColor = accentColor
+                )
+                
+                if (delayEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        RotaryKnob(
+                            label = "TIME",
+                            value = delayTime,
+                            onValueChange = onDelayTimeChange,
+                            valueDisplay = String.format("%.0f", delayTime * 1000),
+                            accentColor = accentColor
+                        )
+                        
+                        RotaryKnob(
+                            label = "FDBK",
+                            value = delayFeedback,
+                            onValueChange = onDelayFeedbackChange,
+                            accentColor = accentColor
+                        )
+                        
+                        RotaryKnob(
+                            label = "MIX",
+                            value = delayMix,
+                            onValueChange = onDelayMixChange,
+                            accentColor = accentColor
+                        )
+                    }
+                }
+            }
+            
+            1 -> {
+                // CHORUS
+                HardwareSwitch(
+                    label = "CHORUS",
+                    checked = chorusEnabled,
+                    onCheckedChange = onChorusEnabledChange,
+                    accentColor = accentColor
+                )
+                
+                if (chorusEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        RotaryKnob(
+                            label = "RATE",
+                            value = chorusRate,
+                            onValueChange = onChorusRateChange,
+                            valueDisplay = String.format("%.2f", chorusRate * 5f),
+                            accentColor = accentColor
+                        )
+                        
+                        RotaryKnob(
+                            label = "DPTH",
+                            value = chorusDepth,
+                            onValueChange = onChorusDepthChange,
+                            accentColor = accentColor
+                        )
+                        
+                        RotaryKnob(
+                            label = "MIX",
+                            value = chorusMix,
+                            onValueChange = onChorusMixChange,
+                            accentColor = accentColor
+                        )
+                    }
+                }
+            }
+            
+            2 -> {
+                // REVERB
+                HardwareSwitch(
+                    label = "REVERB",
+                    checked = reverbEnabled,
+                    onCheckedChange = onReverbEnabledChange,
+                    accentColor = accentColor
+                )
+                
+                if (reverbEnabled) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        RotaryKnob(
+                            label = "SIZE",
+                            value = reverbSize,
+                            onValueChange = onReverbSizeChange,
+                            accentColor = accentColor
+                        )
+                        
+                        RotaryKnob(
+                            label = "DAMP",
+                            value = reverbDamping,
+                            onValueChange = onReverbDampingChange,
+                            accentColor = accentColor
+                        )
+                        
+                        RotaryKnob(
+                            label = "MIX",
+                            value = reverbMix,
+                            onValueChange = onReverbMixChange,
+                            accentColor = accentColor
+                        )
+                    }
+                }
+            }
+        }
     }
 }
