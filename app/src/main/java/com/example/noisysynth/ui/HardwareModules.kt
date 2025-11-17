@@ -14,11 +14,13 @@ import androidx.compose.ui.unit.dp
 fun HardwareOscillatorModule(
     waveform: Int,
     onWaveformChange: (Int) -> Unit,
-    accentColor: Color = Color(0xFF6200EA)
+    accentColor: Color = Color(0xFF6200EA),
+    modifier: Modifier = Modifier
 ) {
     HardwareModulePanel(
         title = "OSCILLATOR",
-        accentColor = accentColor
+        accentColor = accentColor,
+        modifier = modifier
     ) {
         // Waveform buttons in 2x2 grid
         val waveforms = listOf("SINE", "SAW", "SQUARE", "TRI")
@@ -67,11 +69,13 @@ fun HardwareFilterModule(
     resonance: Float,
     onCutoffChange: (Float) -> Unit,
     onResonanceChange: (Float) -> Unit,
-    accentColor: Color = Color(0xFF03DAC5)
+    accentColor: Color = Color(0xFF03DAC5),
+    modifier: Modifier = Modifier
 ) {
     HardwareModulePanel(
         title = "FILTER",
-        accentColor = accentColor
+        accentColor = accentColor,
+        modifier = modifier
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -108,11 +112,13 @@ fun HardwareEnvelopeModule(
     onSustainChange: (Float) -> Unit,
     onReleaseChange: (Float) -> Unit,
     title: String = "AMP ENV",
-    accentColor: Color = Color(0xFFFF6D00)
+    accentColor: Color = Color(0xFFFF6D00),
+    modifier: Modifier = Modifier
 ) {
     HardwareModulePanel(
         title = title,
-        accentColor = accentColor
+        accentColor = accentColor,
+        modifier = modifier
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -165,11 +171,13 @@ fun HardwareLFOModule(
     amount: Float,
     onRateChange: (Float) -> Unit,
     onAmountChange: (Float) -> Unit,
-    accentColor: Color = Color(0xFFFFAB00)
+    accentColor: Color = Color(0xFFFFAB00),
+    modifier: Modifier = Modifier
 ) {
     HardwareModulePanel(
         title = "LFO → FILTER",
-        accentColor = accentColor
+        accentColor = accentColor,
+        modifier = modifier
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -204,11 +212,13 @@ fun HardwareEffectsModule(
     onDelayChange: (Boolean) -> Unit,
     onChorusChange: (Boolean) -> Unit,
     onReverbChange: (Boolean) -> Unit,
-    accentColor: Color = Color(0xFFE91E63)
+    accentColor: Color = Color(0xFFE91E63),
+    modifier: Modifier = Modifier
 ) {
     HardwareModulePanel(
         title = "EFFECTS",
-        accentColor = accentColor
+        accentColor = accentColor,
+        modifier = modifier
     ) {
         HardwareSwitch(
             label = "DELAY",
