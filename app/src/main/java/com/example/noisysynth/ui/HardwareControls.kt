@@ -115,6 +115,14 @@ fun RotaryKnob(
     modifier: Modifier = Modifier
 ) {
     var isDragging by remember { mutableStateOf(false) }
+    var dragValue by remember { mutableStateOf(value) }
+    
+    // Sync dragValue with external value when not dragging
+    LaunchedEffect(value) {
+        if (!isDragging) {
+            dragValue = value
+        }
+    }
     
     Column(
         modifier = modifier,
@@ -126,17 +134,23 @@ fun RotaryKnob(
                 .size(50.dp)
                 .pointerInput(Unit) {
                     detectDragGestures(
-                        onDragStart = { isDragging = true },
-                        onDragEnd = { isDragging = false },
-                        onDragCancel = { isDragging = false }
+                        onDragStart = { 
+                            isDragging = true
+                            dragValue = value  // Capture starting value
+                        },
+                        onDragEnd = { 
+                            isDragging = false 
+                        },
+                        onDragCancel = { 
+                            isDragging = false 
+                        }
                     ) { change, dragAmount ->
                         change.consume()
                         // Only respond to vertical movement (up/down)
                         // Swipe UP = increase, Swipe DOWN = decrease
-                        // Much higher sensitivity for smoother, easier control
-                        val delta = -dragAmount.y / 250f // Very sensitive
-                        val newValue = (value + delta).coerceIn(0f, 1f)
-                        onValueChange(newValue)
+                        val delta = -dragAmount.y / 250f
+                        dragValue = (dragValue + delta).coerceIn(0f, 1f)  // Update local state
+                        onValueChange(dragValue)  // Report to parent
                     }
                 },
             contentAlignment = Alignment.Center
@@ -154,9 +168,12 @@ fun RotaryKnob(
                     style = Stroke(width = 3.dp.toPx())
                 )
 
-                // Active arc
-                val sweepAngle = 270f * value
+                // Use dragValue for visual feedback
+                val currentValue = if (isDragging) dragValue else value
+                val sweepAngle = 270f * currentValue
                 val startAngle = 135f
+                
+                // Active arc
                 drawArc(
                     color = accentColor,
                     startAngle = startAngle,
