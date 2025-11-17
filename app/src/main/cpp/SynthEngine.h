@@ -151,7 +151,7 @@ private:
 class Filter {
 public:
     Filter() : cutoff_(0.5f), resonance_(0.0f), 
-               lowpass_(0.0f), bandpass_(0.0f), highpass_(0.0f) {}
+               lowpass_(0.0f), bandpass_(0.0f), highpass_(0.0f), softReset_(false) {}
     
     void setCutoff(float cutoff) { 
         cutoff_ = std::max(0.0f, std::min(1.0f, cutoff)); 
@@ -214,24 +214,37 @@ public:
         flushDenormal(lowpass_);
         flushDenormal(bandpass_);
         flushDenormal(highpass_);
-        
+
+        // Apply optional soft reset to gently clear internal state
+        if (softReset_) {
+            const float resetDamping = 0.99f; // very gentle per-sample decay
+            lowpass_  *= resetDamping;
+            bandpass_ *= resetDamping;
+            highpass_ *= resetDamping;
+
+            if (std::fabs(lowpass_)  < 1.0e-6f &&
+                std::fabs(bandpass_) < 1.0e-6f &&
+                std::fabs(highpass_) < 1.0e-6f) {
+                lowpass_ = bandpass_ = highpass_ = 0.0f;
+                softReset_ = false;
+            }
+        }
+
         return lowpass_;
     }
-    
+
     void reset() { 
-        // Gentle reset - decay towards zero instead of hard zero
-        // This prevents transients while clearing accumulated state
-        lowpass_ *= 0.1f;
-        bandpass_ *= 0.1f;
-        highpass_ *= 0.1f;
+        // Flag a soft reset so the state is cleared smoothly over several samples
+        softReset_ = true;
     }
-    
+
 private:
     float cutoff_;
     float resonance_;
     float lowpass_;
     float bandpass_;
     float highpass_;
+    bool  softReset_ = false;
 };
 
 /**
@@ -265,9 +278,12 @@ private:
  */
 class Voice {
 public:
+    static constexpr int kClickFadeSamples = 256;   // ~5.3 ms at 48 kHz
+    static constexpr int kStopFadeSamples  = 128;   // ~2.7 ms at 48 kHz
+
     Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
               waveform_(Waveform::SAWTOOTH), clickSuppression_(0.0f), clickSuppressionSamples_(0),
-              stopFadeoutSamples_(48) {}
+              stopFadeoutSamples_(kStopFadeSamples) {}
     
     void noteOn(int midiNote, Waveform waveform) {
         midiNote_ = midiNote;
@@ -288,7 +304,7 @@ public:
             phase_ = 0.0f;
             
             // Add ultra-short click suppression fade-in
-            clickSuppressionSamples_ = 96;
+            clickSuppressionSamples_ = kClickFadeSamples;
             clickSuppression_ = 0.0f;
         }
         
@@ -320,7 +336,7 @@ public:
             }
         } else if (stopFadeoutSamples_ == 0) {
             // Reset fade-out counter when envelopes are active
-            stopFadeoutSamples_ = 48; // 1ms fade-out
+            stopFadeoutSamples_ = kStopFadeSamples; // short fade-out
         }
         
         // Generate waveform
@@ -334,14 +350,14 @@ public:
         
         // Apply ultra-short click suppression fade-in if needed
         if (clickSuppressionSamples_ > 0) {
-            clickSuppression_ = 1.0f - (clickSuppressionSamples_ / 96.0f);
+            clickSuppression_ = 1.0f - (static_cast<float>(clickSuppressionSamples_) / static_cast<float>(kClickFadeSamples));
             sample *= clickSuppression_;
             clickSuppressionSamples_--;
         }
         
         // Apply fade-out when voice is stopping
         if (!envelopesActive && stopFadeoutSamples_ > 0) {
-            float fadeout = stopFadeoutSamples_ / 48.0f;
+            float fadeout = static_cast<float>(stopFadeoutSamples_) / static_cast<float>(kStopFadeSamples);
             sample *= fadeout;
         }
         
@@ -414,7 +430,7 @@ private:
     bool wasRecentlyActive_ = false;
     float clickSuppression_ = 0.0f;
     int clickSuppressionSamples_ = 0;
-    int stopFadeoutSamples_ = 48;
+    int stopFadeoutSamples_ = kStopFadeSamples;
 };
 
 /**
