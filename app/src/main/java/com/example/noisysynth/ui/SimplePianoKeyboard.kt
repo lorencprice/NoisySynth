@@ -26,26 +26,58 @@ data class PianoKey(
 @Composable
 fun SimplePianoKeyboard(
     onNoteOn: (Int) -> Unit,
-    onNoteOff: (Int) -> Unit
+    onNoteOff: (Int) -> Unit,
+    height: Int = 100 // Default height in dp, can be customized
 ) {
-    // Define one octave from C (60) to C (72)
-    val keys = listOf(
-        // White keys
-        PianoKey(60, false, 0f, "C"),
-        PianoKey(62, false, 1f, "D"),
-        PianoKey(64, false, 2f, "E"),
-        PianoKey(65, false, 3f, "F"),
-        PianoKey(67, false, 4f, "G"),
-        PianoKey(69, false, 5f, "A"),
-        PianoKey(71, false, 6f, "B"),
-        PianoKey(72, false, 7f, "C"),
-        // Black keys (positioned between white keys)
-        PianoKey(61, true, 0.7f, "C#"),
-        PianoKey(63, true, 1.7f, "D#"),
-        PianoKey(66, true, 3.7f, "F#"),
-        PianoKey(68, true, 4.7f, "G#"),
-        PianoKey(70, true, 5.7f, "A#")
+    // Define 2 octaves from C3 (48) to C5 (72) for better screen coverage
+    val keys = mutableListOf<PianoKey>()
+    
+    // First octave: C3 (48) to B3 (59)
+    val octave1Start = 48
+    val octave1WhitePositions = listOf(
+        PianoKey(48, false, 0f, "C"),
+        PianoKey(50, false, 1f, "D"),
+        PianoKey(52, false, 2f, "E"),
+        PianoKey(53, false, 3f, "F"),
+        PianoKey(55, false, 4f, "G"),
+        PianoKey(57, false, 5f, "A"),
+        PianoKey(59, false, 6f, "B")
     )
+    val octave1BlackPositions = listOf(
+        PianoKey(49, true, 0.7f),
+        PianoKey(51, true, 1.7f),
+        PianoKey(54, true, 3.7f),
+        PianoKey(56, true, 4.7f),
+        PianoKey(58, true, 5.7f)
+    )
+    
+    // Second octave: C4 (60) to B4 (71)
+    val octave2WhitePositions = listOf(
+        PianoKey(60, false, 7f, "C"),
+        PianoKey(62, false, 8f, "D"),
+        PianoKey(64, false, 9f, "E"),
+        PianoKey(65, false, 10f, "F"),
+        PianoKey(67, false, 11f, "G"),
+        PianoKey(69, false, 12f, "A"),
+        PianoKey(71, false, 13f, "B")
+    )
+    val octave2BlackPositions = listOf(
+        PianoKey(61, true, 7.7f),
+        PianoKey(63, true, 8.7f),
+        PianoKey(66, true, 10.7f),
+        PianoKey(68, true, 11.7f),
+        PianoKey(70, true, 12.7f)
+    )
+    
+    // Final high C (72)
+    val finalC = PianoKey(72, false, 14f, "C")
+    
+    // Combine all keys
+    keys.addAll(octave1WhitePositions)
+    keys.addAll(octave1BlackPositions)
+    keys.addAll(octave2WhitePositions)
+    keys.addAll(octave2BlackPositions)
+    keys.add(finalC)
 
     val whiteKeys = keys.filter { !it.isBlack }
     val blackKeys = keys.filter { it.isBlack }
@@ -53,8 +85,8 @@ fun SimplePianoKeyboard(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(140.dp)
-            .padding(vertical = 8.dp)
+            .height(height.dp)
+            .padding(vertical = 4.dp)
     ) {
         // White keys layer
         Row(
@@ -77,7 +109,7 @@ fun SimplePianoKeyboard(
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize()
         ) {
-            val whiteKeyWidth = (maxWidth - (2.dp * 7)) / 8f
+            val whiteKeyWidth = (maxWidth - (2.dp * 14)) / 15f
             
             blackKeys.forEach { key ->
                 BlackKey(
@@ -158,8 +190,9 @@ fun WhiteKey(
             Text(
                 text = key.label,
                 style = MaterialTheme.typography.bodySmall,
+                fontSize = 9.sp,
                 color = if (isPressed) Color(0xFF606060) else Color(0xFF808080),
-                modifier = Modifier.padding(bottom = 8.dp)
+                modifier = Modifier.padding(bottom = 4.dp)
             )
         }
     }
