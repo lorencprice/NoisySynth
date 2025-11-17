@@ -98,53 +98,58 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
         syncSequencerPattern()
     }
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        // LEFT SIDE: Controls (scrollable)
+        // Compact Header
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            tonalElevation = 4.dp,
+            shape = MaterialTheme.shapes.small
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    )
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "NOISY SYNTH",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 3.sp
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "• Subtractive Synthesizer",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
+                    )
+                }
+            }
+        }
+
+        // MODULE PANELS (scrollable)
         Column(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight()
+                .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Compact Header
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 4.dp,
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = MaterialTheme.colorScheme.primaryContainer
-                        )
-                        .padding(12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = "NOISY SYNTH",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black,
-                            color = MaterialTheme.colorScheme.primary,
-                            letterSpacing = 3.sp
-                        )
-                        Text(
-                            text = "Subtractive Synthesizer",
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            letterSpacing = 1.5.sp
-                        )
-                    }
-                }
-            }
 
             // Three-column grid for compact modules
             Row(
@@ -337,17 +342,19 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // EFFECTS
+                // EFFECTS - Full controls
                 ModulePanel(
-                    title = "FX",
+                    title = "EFFECTS",
                     accentColor = Color(0xFFE91E63),
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Delay
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Delay", fontSize = 10.sp)
+                        Text("Delay", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Switch(
                             checked = delayEnabled,
                             onCheckedChange = {
@@ -357,11 +364,46 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                             modifier = Modifier.height(20.dp)
                         )
                     }
+                    if (delayEnabled) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Time",
+                            value = delayTime,
+                            onValueChange = {
+                                delayTime = it
+                                synthEngine.setDelayTime(it)
+                            },
+                            valueDisplay = String.format("%.0f ms", delayTime * 1000)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Feedback",
+                            value = delayFeedback,
+                            onValueChange = {
+                                delayFeedback = it
+                                synthEngine.setDelayFeedback(it)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Mix",
+                            value = delayMix,
+                            onValueChange = {
+                                delayMix = it
+                                synthEngine.setDelayMix(it)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Chorus
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Chorus", fontSize = 10.sp)
+                        Text("Chorus", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Switch(
                             checked = chorusEnabled,
                             onCheckedChange = {
@@ -371,11 +413,46 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                             modifier = Modifier.height(20.dp)
                         )
                     }
+                    if (chorusEnabled) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Rate",
+                            value = chorusRate,
+                            onValueChange = {
+                                chorusRate = it
+                                synthEngine.setChorusRate(it)
+                            },
+                            valueDisplay = String.format("%.2f Hz", chorusRate * 5f)
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Depth",
+                            value = chorusDepth,
+                            onValueChange = {
+                                chorusDepth = it
+                                synthEngine.setChorusDepth(it)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Mix",
+                            value = chorusMix,
+                            onValueChange = {
+                                chorusMix = it
+                                synthEngine.setChorusMix(it)
+                            }
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Reverb
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Reverb", fontSize = 10.sp)
+                        Text("Reverb", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Switch(
                             checked = reverbEnabled,
                             onCheckedChange = {
@@ -385,19 +462,50 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                             modifier = Modifier.height(20.dp)
                         )
                     }
+                    if (reverbEnabled) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Size",
+                            value = reverbSize,
+                            onValueChange = {
+                                reverbSize = it
+                                synthEngine.setReverbSize(it)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Damping",
+                            value = reverbDamping,
+                            onValueChange = {
+                                reverbDamping = it
+                                synthEngine.setReverbDamping(it)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Mix",
+                            value = reverbMix,
+                            onValueChange = {
+                                reverbMix = it
+                                synthEngine.setReverbMix(it)
+                            }
+                        )
+                    }
                 }
 
-                // ARP/SEQ
+                // SEQUENCER - Full controls
                 ModulePanel(
-                    title = "SEQ",
+                    title = "SEQUENCER",
                     accentColor = Color(0xFF2979FF),
                     modifier = Modifier.weight(1f)
                 ) {
+                    // Arpeggiator
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Arp", fontSize = 10.sp)
+                        Text("Arpeggiator", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Switch(
                             checked = arpeggiatorEnabled,
                             onCheckedChange = {
@@ -408,6 +516,7 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                         )
                     }
                     if (arpeggiatorEnabled) {
+                        Spacer(modifier = Modifier.height(4.dp))
                         CompactParamControl(
                             label = "Tempo",
                             value = arpeggiatorTempo,
@@ -415,14 +524,56 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                                 arpeggiatorTempo = it
                                 synthEngine.setArpeggiatorRate(60 + it * 120)
                             },
-                            valueDisplay = "${(60 + arpeggiatorTempo * 120).roundToInt()}"
+                            valueDisplay = String.format("%d BPM", (60 + arpeggiatorTempo * 120).roundToInt())
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Gate",
+                            value = arpeggiatorGate,
+                            onValueChange = {
+                                arpeggiatorGate = it
+                                synthEngine.setArpeggiatorGate(0.2f + it * 0.8f)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val patterns = listOf("Up", "Down", "Up-Dn", "Rnd")
+                        Text("Pattern", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            patterns.forEachIndexed { index, name ->
+                                Button(
+                                    onClick = {
+                                        arpeggiatorPattern = index
+                                        synthEngine.setArpeggiatorPattern(index)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(28.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (arpeggiatorPattern == index)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    contentPadding = PaddingValues(2.dp)
+                                ) {
+                                    Text(name, fontSize = 9.sp)
+                                }
+                            }
+                        }
                     }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Sequencer
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Seq", fontSize = 10.sp)
+                        Text("Step Seq", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         Switch(
                             checked = sequencerEnabled,
                             onCheckedChange = {
@@ -432,15 +583,56 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                             modifier = Modifier.height(20.dp)
                         )
                     }
+                    if (sequencerEnabled) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        CompactParamControl(
+                            label = "Tempo",
+                            value = sequencerTempo,
+                            onValueChange = {
+                                sequencerTempo = it
+                                synthEngine.setSequencerTempo(55 + it * 135)
+                            },
+                            valueDisplay = String.format("%d BPM", (55 + sequencerTempo * 135).roundToInt())
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        val stepLengths = listOf("1/8", "1/4", "1/2", "1")
+                        Text("Step Length", fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            stepLengths.forEachIndexed { index, name ->
+                                Button(
+                                    onClick = {
+                                        sequencerStepLengthIndex = index
+                                        synthEngine.setSequencerStepLength(index)
+                                        syncSequencerPattern(stepLengthIndexValue = index)
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(28.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = if (sequencerStepLengthIndex == index)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    ),
+                                    contentPadding = PaddingValues(2.dp)
+                                ) {
+                                    Text(name, fontSize = 9.sp)
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        // RIGHT SIDE: Piano Keyboard (fixed, always visible)
+        // PIANO KEYBOARD - Bottom, full width, smaller height
         Surface(
             modifier = Modifier
-                .width(400.dp)
-                .fillMaxHeight(),
+                .fillMaxWidth()
+                .height(100.dp),
             tonalElevation = 4.dp,
             shadowElevation = 8.dp
         ) {
@@ -448,7 +640,7 @@ fun SynthScreenLandscape(synthEngine: SynthEngine) {
                 modifier = Modifier
                     .fillMaxSize()
                     .background(MaterialTheme.colorScheme.surface)
-                    .padding(16.dp),
+                    .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 SimplePianoKeyboard(
