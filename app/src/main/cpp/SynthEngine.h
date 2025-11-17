@@ -282,33 +282,42 @@ public:
     static constexpr int kStopFadeSamples  = 128;   // ~2.7 ms at 48 kHz
 
     Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
-              waveform_(Waveform::SAWTOOTH), clickSuppression_(0.0f), clickSuppressionSamples_(0),
-              stopFadeoutSamples_(kStopFadeSamples) {}
+              waveform_(Waveform::SAWTOOTH),
+              clickSuppression_(0.0f), clickSuppressionSamples_(0),
+              stopFadeoutSamples_(kStopFadeSamples),
+              crossfadeFromSample_(0.0f), crossfadeSamplesRemaining_(0),
+              lastOutputSample_(0.0f) {}
     
     void noteOn(int midiNote, Waveform waveform) {
-        midiNote_ = midiNote;
+        // Check if this voice was already active (voice reuse / stealing)
+        bool wasActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
+
+        if (wasActive) {
+            // Schedule a short crossfade from the previous output into the new note
+            crossfadeFromSample_      = lastOutputSample_;
+            crossfadeSamplesRemaining_ = kClickFadeSamples;
+            // Disable simple click fade-in in this case
+            clickSuppressionSamples_  = 0;
+        } else {
+            // Fresh note from silence: use a short fade-in from 0
+            clickSuppressionSamples_  = kClickFadeSamples;
+            clickSuppression_         = 0.0f;
+            crossfadeSamplesRemaining_ = 0;
+        }
+
+        midiNote_  = midiNote;
         frequency_ = midiNoteToFrequency(midiNote);
-        waveform_ = waveform;
-        active_ = true;
+        waveform_  = waveform;
+        active_    = true;
         ampEnvelope_.noteOn();
         filterEnvelope_.noteOn();
-        
-        // CRITICAL FIX: Reset filter on NEW notes only (not retriggered notes)
-        // This prevents state accumulation in the arpeggiator
-        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
+
+        // For genuinely fresh notes, gently reset the filter state
+        if (!wasActive) {
             filter_.reset();
         }
-        
-        // Don't hard-reset phase to zero unless it's a new note
-        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
-            phase_ = 0.0f;
-            
-            // Add ultra-short click suppression fade-in
-            clickSuppressionSamples_ = kClickFadeSamples;
-            clickSuppression_ = 0.0f;
-        }
-        
-        lastMidiNote_ = midiNote;
+
+        lastMidiNote_      = midiNote;
         wasRecentlyActive_ = true;
     }
     
@@ -348,19 +357,32 @@ public:
             phase_ -= 1.0f;
         }
         
-        // Apply ultra-short click suppression fade-in if needed
+        // Crossfade from previous note if this voice was reused for a new note
+        if (crossfadeSamplesRemaining_ > 0) {
+            float t = (static_cast<float>(kClickFadeSamples - crossfadeSamplesRemaining_) /
+                       static_cast<float>(kClickFadeSamples));
+            // Linear crossfade between previous output and new sample
+            sample = (crossfadeFromSample_ * (1.0f - t)) + (sample * t);
+            crossfadeSamplesRemaining_--;
+        } else {
+            // Keep track of last output sample for potential future crossfades
+            crossfadeFromSample_ = sample;
+        }
+
+        // Apply ultra-short click suppression fade-in if needed (fresh notes from silence)
         if (clickSuppressionSamples_ > 0) {
-            clickSuppression_ = 1.0f - (static_cast<float>(clickSuppressionSamples_) / static_cast<float>(kClickFadeSamples));
+            clickSuppression_ = 1.0f - (static_cast<float>(clickSuppressionSamples_) /
+                                        static_cast<float>(kClickFadeSamples));
             sample *= clickSuppression_;
             clickSuppressionSamples_--;
         }
-        
+
         // Apply fade-out when voice is stopping
         if (!envelopesActive && stopFadeoutSamples_ > 0) {
             float fadeout = static_cast<float>(stopFadeoutSamples_) / static_cast<float>(kStopFadeSamples);
             sample *= fadeout;
         }
-        
+
         // Get envelope values
         float ampEnvValue = ampEnvelope_.process(sampleRate);
         float filterEnvValue = filterEnvelope_.process(sampleRate);
@@ -374,6 +396,8 @@ public:
         // Apply amplitude envelope
         sample *= ampEnvValue;
         
+        // Store last output sample for future crossfades
+        lastOutputSample_ = sample;
         return sample;
     }
     
@@ -425,12 +449,19 @@ private:
     Filter filter_;
     float filterEnvAmount_ = 0.5f; // Default filter envelope amount
     
-    // Click suppression
-    int lastMidiNote_ = -1;
-    bool wasRecentlyActive_ = false;
-    float clickSuppression_ = 0.0f;
-    int clickSuppressionSamples_ = 0;
-    int stopFadeoutSamples_ = kStopFadeSamples;
+    // Click suppression and smoothing
+    int   lastMidiNote_            = -1;
+    bool  wasRecentlyActive_       = false;
+    float clickSuppression_        = 0.0f;
+    int   clickSuppressionSamples_ = 0;
+    int   stopFadeoutSamples_      = kStopFadeSamples;
+
+    // Crossfade state for voice reuse
+    float crossfadeFromSample_      = 0.0f;
+    int   crossfadeSamplesRemaining_ = 0;
+
+    // Last output sample (post-filter & envelope), used as a baseline for crossfades
+    float lastOutputSample_         = 0.0f;
 };
 
 /**
