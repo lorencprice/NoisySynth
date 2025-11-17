@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -390,10 +391,8 @@ fun HardwareSwitch(
                     color = if (checked) accentColor.copy(alpha = 0.3f) else Color(0xFF1A1A1A),
                     shape = RoundedCornerShape(10.dp)
                 )
-                .pointerInput(Unit) {
-                    detectTapGestures {
-                        onCheckedChange(!checked)
-                    }
+                .toggleable(value = checked, role = null) {
+                    onCheckedChange(!checked)
                 },
             contentAlignment = if (checked) Alignment.CenterEnd else Alignment.CenterStart
         ) {
