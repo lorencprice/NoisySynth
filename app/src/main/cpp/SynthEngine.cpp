@@ -116,7 +116,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         // Mix all active voices
         int activeVoices = 0;
         for (auto& voice : voices_) {
-            if (voice.isActive()) {
+            if (voice.isNoteActive()) {
                 sample += voice.process(sampleRate, lfoValue);
                 activeVoices++;
             }
@@ -127,11 +127,11 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         if (activeVoices > 0) {
             targetPolyGain = 1.0f / std::sqrt(static_cast<float>(activeVoices));
         }
-        
+
         // Simple one-pole smoothing
         const float smoothing = 0.001f;  // ~10–20 ms depending on buffer size
         polyGain_ += smoothing * (targetPolyGain - polyGain_);
-        
+
         sample *= polyGain_;
 
 
@@ -849,7 +849,7 @@ Voice* SynthEngine::findFreeVoice() {
 
 Voice* SynthEngine::findVoiceForNote(int midiNote) {
     for (auto& voice : voices_) {
-        if (voice.getMidiNote() == midiNote /* && voice.isNoteActive() */) {
+        if (voice.getMidiNote() == midiNote && voice.isNoteActive()) {
             return &voice;
         }
     }
