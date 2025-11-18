@@ -525,21 +525,24 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
                 break;
         }
 
-        currentArpNote_ = heldNotes_[idx];
+        int newNote = heldNotes_[idx];
 
         // Ensure any previous arp note is turned off before starting a new one
-        if (arpNoteActive_) {
+        if (arpNoteActive_ && currentArpNote_ >= 0) {
             suppressArpCapture_ = true;
             noteOff(currentArpNote_);
             suppressArpCapture_ = false;
             arpNoteActive_ = false;
         }
 
+        currentArpNote_ = newNote;
+
         suppressArpCapture_ = true;
         noteOn(currentArpNote_);
         suppressArpCapture_ = false;
         arpNoteActive_ = true;
         arpStepStarted_ = true;
+
     }
 
     // Gate the current note
@@ -832,20 +835,33 @@ void SynthEngine::initializeEffects(float sampleRate) {
 
 
 Voice* SynthEngine::findFreeVoice() {
+    // First, look for a truly free voice (no note assigned and envelope idle)
     for (auto& voice : voices_) {
         if (!voice.isNoteActive() && voice.getMidiNote() == -1) {
             return &voice;
         }
     }
     
+    // Next, look for a voice that is fully inactive at the DSP level
     for (auto& voice : voices_) {
         if (!voice.isActive()) {
             return &voice;
         }
     }
     
-    return &voices_[0];
+    // All voices are active: steal the quietest one (smallest amp envelope level)
+    Voice* quietest = &voices_[0];
+    float minLevel = quietest->getAmpLevel();
+    for (auto& voice : voices_) {
+        float lvl = voice.getAmpLevel();
+        if (lvl < minLevel) {
+            minLevel = lvl;
+            quietest = &voice;
+        }
+    }
+    return quietest;
 }
+
 
 Voice* SynthEngine::findVoiceForNote(int midiNote) {
     for (auto& voice : voices_) {
