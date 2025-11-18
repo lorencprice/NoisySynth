@@ -283,14 +283,17 @@ public:
             filter_.reset();
         }
         
-        // Don't hard-reset phase to zero unless it's a new note
-        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
+        // CLICK FIX: Never reset phase - let oscillator free-run
+        // This prevents phase discontinuities that cause clicks
+        // Only reset phase when voice was completely idle
+        if (!wasRecentlyActive_) {
             phase_ = 0.0f;
-            
-            // Add ultra-short click suppression fade-in
-            clickSuppressionSamples_ = 96;
-            clickSuppression_ = 0.0f;
         }
+        
+        // Always apply click suppression on note start
+        // Longer fade-in (240 samples = 5ms at 48kHz) for smoother attack
+        clickSuppressionSamples_ = 240;
+        clickSuppression_ = 0.0f;
         
         lastMidiNote_ = midiNote;
         wasRecentlyActive_ = true;
@@ -332,9 +335,9 @@ public:
             phase_ -= 1.0f;
         }
         
-        // Apply ultra-short click suppression fade-in if needed
+        // Apply click suppression fade-in if needed
         if (clickSuppressionSamples_ > 0) {
-            clickSuppression_ = 1.0f - (clickSuppressionSamples_ / 96.0f);
+            clickSuppression_ = 1.0f - (clickSuppressionSamples_ / 240.0f);
             sample *= clickSuppression_;
             clickSuppressionSamples_--;
         }
