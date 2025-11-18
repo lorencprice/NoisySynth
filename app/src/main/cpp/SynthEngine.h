@@ -297,7 +297,9 @@ public:
     }
     
     void noteOff() {
-        active_ = false; // Mark as inactive immediately
+        void noteOff() {
+        // Stay active while the release phase runs.
+        // We only mark inactive once the envelopes are fully done in process().
         ampEnvelope_.noteOff();
         filterEnvelope_.noteOff();
     }
@@ -307,17 +309,17 @@ public:
         bool envelopesActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
         
         if (!envelopesActive) {
-            // CRITICAL FIX: Don't immediately return 0.0!
-            // Add a very short fade-out (48 samples = 1ms at 48kHz)
             if (stopFadeoutSamples_ > 0) {
                 // Still fading out
                 stopFadeoutSamples_--;
             } else {
-                // Completely done
+                // Completely done: only now is the voice free to be reused
                 midiNote_ = -1;
                 wasRecentlyActive_ = false;
+                active_ = false;
                 return 0.0f;
             }
+        }
         } else if (stopFadeoutSamples_ == 0) {
             // Reset fade-out counter when envelopes are active
             stopFadeoutSamples_ = 48; // 1ms fade-out
