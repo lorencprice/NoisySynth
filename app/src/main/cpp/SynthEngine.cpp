@@ -122,10 +122,18 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
             }
         }
         
-        // Normalize by active voice count to prevent clipping
+        // Polyphony-aware gain with smoothing (no sudden jumps)
+        float targetPolyGain = 1.0f;
         if (activeVoices > 0) {
-          //  sample /= std::sqrt(static_cast<float>(activeVoices));
+            targetPolyGain = 1.0f / std::sqrt(static_cast<float>(activeVoices));
         }
+        
+        // Simple one-pole smoothing
+        const float smoothing = 0.001f;  // ~10–20 ms depending on buffer size
+        polyGain_ += smoothing * (targetPolyGain - polyGain_);
+        
+        sample *= polyGain_;
+
 
         
         // Apply modulation effects
@@ -143,7 +151,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         }
 
         // Soft clipping / saturation
-        sample = std::tanh(sample * 0.7f);
+        sample = std::tanh(sample * 0.5f);
         
         // Final limiting
         sample = std::max(-1.0f, std::min(1.0f, sample));
