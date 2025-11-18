@@ -297,8 +297,7 @@ public:
     }
     
     void noteOff() {
-        // Stay active while the release phase runs.
-        // We only mark inactive once the envelopes are fully done in process().
+        // Do not mark the voice inactive here; let the release/fade-out finish.
         ampEnvelope_.noteOff();
         filterEnvelope_.noteOff();
     }
@@ -308,11 +307,13 @@ public:
         bool envelopesActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
         
         if (!envelopesActive) {
+            // CRITICAL FIX: Don't immediately return 0.0!
+            // Add a very short fade-out (48 samples = 1ms at 48kHz)
             if (stopFadeoutSamples_ > 0) {
                 // Still fading out
                 stopFadeoutSamples_--;
             } else {
-                // Completely done: only now is the voice free to be reused
+                // Completely done: mark this voice as fully inactive and reusable
                 midiNote_ = -1;
                 wasRecentlyActive_ = false;
                 active_ = false;
@@ -361,7 +362,16 @@ public:
         return sample;
     }
     
-    bool isActive() const { return active_; }
+    // A voice is considered active as long as it may contribute non-zero audio
+    // (envelopes running, fade-out or click-suppression in progress, or still bound to a note).
+    bool isActive() const {
+        return active_
+            || ampEnvelope_.isActive()
+            || filterEnvelope_.isActive()
+            || (stopFadeoutSamples_ > 0)
+            || (clickSuppressionSamples_ > 0)
+            || (midiNote_ != -1);
+    }
     bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
     
