@@ -124,7 +124,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         
         // Normalize by active voice count to prevent clipping
         if (activeVoices > 0) {
-            sample /= std::sqrt(static_cast<float>(activeVoices));
+          //  sample /= std::sqrt(static_cast<float>(activeVoices));
         }
 
         
@@ -841,7 +841,7 @@ Voice* SynthEngine::findFreeVoice() {
 
 Voice* SynthEngine::findVoiceForNote(int midiNote) {
     for (auto& voice : voices_) {
-        if (voice.getMidiNote() == midiNote && voice.isNoteActive()) {
+        if (voice.getMidiNote() == midiNote /* && voice.isNoteActive() */) {
             return &voice;
         }
     }
