@@ -221,9 +221,9 @@ public:
     void reset() { 
         // Gentle reset - decay towards zero instead of hard zero
         // This prevents transients while clearing accumulated state
-        //lowpass_ *= 0.1f;
-        //bandpass_ *= 0.1f;
-       // highpass_ *= 0.1f;
+        lowpass_ *= 0.1f;
+        bandpass_ *= 0.1f;
+        highpass_ *= 0.1f;
     }
     
 private:
