@@ -116,7 +116,7 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         // Mix all active voices
         int activeVoices = 0;
         for (auto& voice : voices_) {
-            if (voice.isNoteActive()) {
+            if (voice.isActive()) {
                 sample += voice.process(sampleRate, lfoValue);
                 activeVoices++;
             }
