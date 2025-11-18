@@ -318,7 +318,6 @@ public:
                 active_ = false;
                 return 0.0f;
             }
-        }
         } else if (stopFadeoutSamples_ == 0) {
             // Reset fade-out counter when envelopes are active
             stopFadeoutSamples_ = 48; // 1ms fade-out
