@@ -572,7 +572,10 @@ private:
     bool suppressArpCapture_ = false;
 
     // Output safety
-    float outputGain_ = 0.65f;
+    float outputGain_ = 0.5f;
+    // Polyphony gain smoothing
+    float polyGain_ = 1.0f;
+
 };
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
