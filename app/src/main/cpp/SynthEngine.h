@@ -121,6 +121,8 @@ public:
     }
 
     bool isActive() const { return phase_ != Phase::IDLE; }
+    float getLevel() const { return level_; }
+
 
 private:
     enum class Phase {
@@ -374,6 +376,7 @@ public:
     }
     bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
+    float getAmpLevel() const { return ampEnvelope_.getLevel(); }
     
     Envelope& getAmpEnvelope() { return ampEnvelope_; }
     Envelope& getFilterEnvelope() { return filterEnvelope_; }
