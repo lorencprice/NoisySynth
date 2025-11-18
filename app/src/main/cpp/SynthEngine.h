@@ -297,7 +297,7 @@ public:
     }
     
     void noteOff() {
-        active_ = false; // Mark as inactive immediately
+        // Do not mark the voice inactive here; let the release/fade-out finish.
         ampEnvelope_.noteOff();
         filterEnvelope_.noteOff();
     }
@@ -313,9 +313,10 @@ public:
                 // Still fading out
                 stopFadeoutSamples_--;
             } else {
-                // Completely done
+                // Completely done: mark this voice as fully inactive and reusable
                 midiNote_ = -1;
                 wasRecentlyActive_ = false;
+                active_ = false;
                 return 0.0f;
             }
         } else if (stopFadeoutSamples_ == 0) {
@@ -361,7 +362,16 @@ public:
         return sample;
     }
     
-    bool isActive() const { return active_; }
+    // A voice is considered active as long as it may contribute non-zero audio
+    // (envelopes running, fade-out or click-suppression in progress, or still bound to a note).
+    bool isActive() const {
+        return active_
+            || ampEnvelope_.isActive()
+            || filterEnvelope_.isActive()
+            || (stopFadeoutSamples_ > 0)
+            || (clickSuppressionSamples_ > 0)
+            || (midiNote_ != -1);
+    }
     bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
     
@@ -565,6 +575,7 @@ private:
     float outputGain_ = 0.5f;
     // Polyphony gain smoothing
     float polyGain_ = 1.0f;
-    };
+
+};
 
 #endif // NOISYSYNTH_SYNTHENGINE_H
