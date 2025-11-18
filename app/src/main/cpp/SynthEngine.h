@@ -261,22 +261,15 @@ private:
 };
 
 /**
- * Single voice of the synthesizer - SOLUTION 1: Smart Phase Transition
+ * Single voice of the synthesizer - SOLUTION 2: Simple Phase Reset
  */
 class Voice {
 public:
-    Voice() : phase_(0.0f), phaseOffset_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
+    Voice() : phase_(0.0f), frequency_(0.0f), active_(false), midiNote_(-1),
               waveform_(Waveform::SAWTOOTH), clickSuppression_(0.0f), clickSuppressionSamples_(0),
-              stopFadeoutSamples_(48) {}
+              stopFadeoutSamples_(48), totalClickSamples_(240) {}
     
     void noteOn(int midiNote, Waveform waveform) {
-        // Store the current output value if the voice was recently active
-        float previousValue = 0.0f;
-        if (wasRecentlyActive_ && midiNote_ != midiNote) {
-            // Calculate the current waveform value before changing frequency
-            previousValue = generateWaveform();
-        }
-        
         midiNote_ = midiNote;
         frequency_ = midiNoteToFrequency(midiNote);
         waveform_ = waveform;
@@ -284,55 +277,27 @@ public:
         ampEnvelope_.noteOn();
         filterEnvelope_.noteOn();
         
-        // CRITICAL FIX: Reset filter on NEW notes only (not retriggered notes)
-        // This prevents state accumulation in the arpeggiator
+        // Always reset filter when pitch changes
         if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
             filter_.reset();
         }
         
-        // Smart phase handling for smooth transitions
-        if (!wasRecentlyActive_) {
-            // Fresh voice - start at zero phase
-            phase_ = 0.0f;
-            phaseOffset_ = 0.0f;
-        } else if (lastMidiNote_ != midiNote) {
-            // Frequency change - find best phase to minimize discontinuity
-            // For sine/triangle, find phase that gives us the previous value
-            if (waveform == Waveform::SINE) {
-                // arcsin to find phase that produces previousValue
-                float targetPhase = std::asin(std::max(-1.0f, std::min(1.0f, previousValue))) / (2.0f * kPI);
-                if (targetPhase < 0) targetPhase += 1.0f;
-                
-                // Calculate offset needed
-                phaseOffset_ = targetPhase - phase_;
-                if (phaseOffset_ < 0) phaseOffset_ += 1.0f;
-            } else if (waveform == Waveform::TRIANGLE) {
-                // For triangle, find appropriate phase
-                // Triangle formula: t < 0.5 ? (4*t - 1) : (3 - 4*t)
-                float targetPhase = 0.0f;
-                if (previousValue < 0) {
-                    // First half of triangle
-                    targetPhase = (previousValue + 1.0f) / 4.0f;
-                } else {
-                    // Second half of triangle
-                    targetPhase = (3.0f - previousValue) / 4.0f;
-                }
-                phaseOffset_ = targetPhase - phase_;
-                if (phaseOffset_ < 0) phaseOffset_ += 1.0f;
-            } else {
-                // For other waveforms, reset to zero-crossing
-                phase_ = 0.0f;
-                phaseOffset_ = 0.0f;
-            }
-            
-            // Apply longer click suppression for pitch changes
-            clickSuppressionSamples_ = 480; // 10ms for pitch changes
+        // ALWAYS reset phase to zero for consistent starting point
+        phase_ = 0.0f;
+        
+        // Apply longer click suppression for pitch changes
+        if (wasRecentlyActive_ && lastMidiNote_ != midiNote) {
+            // Longer fade for pitch changes to mask discontinuity
+            clickSuppressionSamples_ = 960;  // 20ms at 48kHz
+            totalClickSamples_ = 960;
+            clickSuppression_ = 0.0f;
         } else {
-            // Same note retrigger - shorter fade
-            clickSuppressionSamples_ = 240;
+            // Normal fade for new notes or same-note retriggers
+            clickSuppressionSamples_ = 240;  // 5ms at 48kHz
+            totalClickSamples_ = 240;
+            clickSuppression_ = 0.0f;
         }
         
-        clickSuppression_ = 0.0f;
         lastMidiNote_ = midiNote;
         wasRecentlyActive_ = true;
     }
@@ -357,7 +322,6 @@ public:
                 // Completely done
                 midiNote_ = -1;
                 wasRecentlyActive_ = false;
-                phaseOffset_ = 0.0f;  // Reset phase offset when voice becomes idle
                 return 0.0f;
             }
         } else if (stopFadeoutSamples_ == 0) {
@@ -374,10 +338,9 @@ public:
             phase_ -= 1.0f;
         }
         
-        // Apply click suppression fade-in if needed
+        // Apply click suppression fade-in with smoother curve
         if (clickSuppressionSamples_ > 0) {
-            float totalSamples = (clickSuppressionSamples_ > 300) ? 480.0f : 240.0f;
-            clickSuppression_ = 1.0f - (clickSuppressionSamples_ / totalSamples);
+            clickSuppression_ = 1.0f - (static_cast<float>(clickSuppressionSamples_) / totalClickSamples_);
             
             // Use cosine curve for smoother fade
             float fadeFactor = 0.5f * (1.0f - std::cos(kPI * clickSuppression_));
@@ -422,9 +385,7 @@ public:
     
 private:
     float generateWaveform() {
-        float t = phase_ + phaseOffset_;
-        while (t >= 1.0f) t -= 1.0f;
-        while (t < 0.0f) t += 1.0f;
+        float t = phase_;
         
         switch (waveform_) {
             case Waveform::SINE:
@@ -449,7 +410,6 @@ private:
     }
     
     float phase_;
-    float phaseOffset_;  // Added for smooth phase transitions
     float frequency_;
     bool active_;
     int midiNote_;
@@ -465,6 +425,7 @@ private:
     float clickSuppression_ = 0.0f;
     int clickSuppressionSamples_ = 0;
     int stopFadeoutSamples_ = 48;
+    float totalClickSamples_ = 240;  // Track total samples for fade calculation
 };
 
 /**
