@@ -297,7 +297,6 @@ public:
     }
     
     void noteOff() {
-        void noteOff() {
         // Stay active while the release phase runs.
         // We only mark inactive once the envelopes are fully done in process().
         ampEnvelope_.noteOff();
