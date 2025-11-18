@@ -1,10 +1,12 @@
 #include "SynthEngine.h"
 #include <android/log.h>
 #include <cstdlib>
+#include <chrono>
 
 #define LOG_TAG "NoisySynth"
 #define LOGD(...) __android_log_print(ANDROID_LOG_DEBUG, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
+#define LOGW(...) __android_log_print(ANDROID_LOG_WARN, LOG_TAG, __VA_ARGS__)
 
 SynthEngine::SynthEngine() 
     : currentWaveform_(Waveform::SAWTOOTH),
@@ -51,7 +53,7 @@ SynthEngine::SynthEngine()
     // Initialize voices
     voices_.resize(kMaxVoices);
     
-    // Create audio stream
+    // Create audio stream with specific settings for diagnostics
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Output);
     builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
@@ -59,6 +61,10 @@ SynthEngine::SynthEngine()
     builder.setFormat(oboe::AudioFormat::Float);
     builder.setChannelCount(oboe::ChannelCount::Mono);
     builder.setSampleRate(kSampleRate);
+    
+    // Try to set a reasonable buffer size
+    builder.setFramesPerCallback(192);  // ~4ms at 48kHz
+    
     builder.setDataCallback(this);
     
     oboe::Result result = builder.openStream(stream_);
@@ -67,24 +73,40 @@ SynthEngine::SynthEngine()
         return;
     }
 
+    // Log actual stream configuration
+    LOGD("=== AUDIO STREAM DIAGNOSTICS ===");
+    LOGD("Sample Rate: %d Hz", stream_->getSampleRate());
+    LOGD("Buffer Size: %d frames", stream_->getBufferSizeInFrames());
+    LOGD("Frames Per Callback: %d", stream_->getFramesPerCallback());
+    LOGD("Latency: %.2f ms", (stream_->getBufferSizeInFrames() * 1000.0) / stream_->getSampleRate());
+    LOGD("Format: %s", oboe::convertToText(stream_->getFormat()));
+    LOGD("Sharing Mode: %s", oboe::convertToText(stream_->getSharingMode()));
+    LOGD("Performance Mode: %s", oboe::convertToText(stream_->getPerformanceMode()));
     
     initializeEffects(stream_->getSampleRate());
     configureSequenceLength();
-        
-    LOGD("Stream created: SR=%d, BufferSize=%d",
-         stream_->getSampleRate(),
-         stream_->getBufferSizeInFrames());
     
     // Start the stream
     result = stream_->requestStart();
     if (result != oboe::Result::OK) {
         LOGE("Failed to start stream. Error: %s", oboe::convertToText(result));
+    } else {
+        LOGD("Stream started successfully");
     }
 }
 
 SynthEngine::~SynthEngine() {
     if (stream_) {
         stream_->close();
+    }
+    
+    // Log performance stats
+    if (callbackCount_ > 0) {
+        LOGD("=== PERFORMANCE STATS ===");
+        LOGD("Total callbacks: %lld", (long long)callbackCount_);
+        LOGD("Avg callback time: %.3f ms", avgCallbackTime_ / callbackCount_);
+        LOGD("Max callback time: %.3f ms", maxCallbackTime_);
+        LOGD("Underruns detected: %d", underrunCount_);
     }
 }
 
@@ -93,22 +115,23 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
     void *audioData,
     int32_t numFrames) {
     
+    // Performance monitoring
+    auto startTime = std::chrono::high_resolution_clock::now();
+    
     float *outputBuffer = static_cast<float *>(audioData);
     float sampleRate = audioStream->getSampleRate();
     
     // Clear output buffer
     std::fill_n(outputBuffer, numFrames, 0.0f);
     
-    // CRITICAL FIX: Process arpeggiator/sequencer ONCE per buffer, not per sample!
-    // This prevents timing chaos and stuck notes
-    processSequencer(sampleRate, numFrames);
-    if (!sequencerEnabled_) {
-        processArpeggiator(sampleRate, numFrames);
-    }
-    
     // Process each frame
     for (int32_t i = 0; i < numFrames; i++) {
         float sample = 0.0f;
+   
+        processSequencer(sampleRate);
+        if (!sequencerEnabled_) {
+            processArpeggiator(sampleRate);
+        }
  
         // Generate LFO value
         float lfoValue = lfo_.process(sampleRate);
@@ -127,13 +150,12 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
             sample /= std::sqrt(static_cast<float>(activeVoices));
         }
 
-        
         // Apply modulation effects
         sample = processChorus(sample, sampleRate);
         sample = processDelay(sample, sampleRate);
         sample = processReverb(sample, sampleRate);
 
-        // Apply master headroom and gentle limiting
+        // Apply master headroom and gentle limiting to avoid attack clipping even without FX
         sample *= outputGain_;
         const float limiterThreshold = 0.9f;
         float absSample = std::fabs(sample);
@@ -151,6 +173,38 @@ oboe::DataCallbackResult SynthEngine::onAudioReady(
         outputBuffer[i] = sample;
     }
     
+    // Performance monitoring
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    double callbackTimeMs = duration.count() / 1000.0;
+    
+    callbackCount_++;
+    avgCallbackTime_ += callbackTimeMs;
+    if (callbackTimeMs > maxCallbackTime_) {
+        maxCallbackTime_ = callbackTimeMs;
+    }
+    
+    // Calculate available time for this buffer
+    double availableTimeMs = (numFrames * 1000.0) / sampleRate;
+    
+    // Warn if we're using more than 80% of available time
+    if (callbackTimeMs > availableTimeMs * 0.8) {
+        underrunCount_++;
+        if (underrunCount_ % 100 == 1) {  // Log every 100th underrun
+            LOGW("POTENTIAL UNDERRUN: Callback took %.3f ms, had %.3f ms available (%.1f%% usage)",
+                 callbackTimeMs, availableTimeMs, (callbackTimeMs / availableTimeMs) * 100.0);
+        }
+    }
+    
+    // Periodically log stats (every ~1 second)
+    if (callbackCount_ % 100 == 0) {
+        LOGD("Callbacks: %lld, Avg: %.3f ms, Max: %.3f ms, Underruns: %d",
+             (long long)callbackCount_,
+             avgCallbackTime_ / callbackCount_,
+             maxCallbackTime_,
+             underrunCount_);
+    }
+    
     return oboe::DataCallbackResult::Continue;
 }
 
@@ -162,10 +216,9 @@ void SynthEngine::noteOn(int midiNote) {
         return;
     }
 
-    // First check if this note is already playing
+    // First check if this note is already playing - if so, retrigger it
     Voice* existingVoice = findVoiceForNote(midiNote);
     if (existingVoice) {
-        // Retrigger the existing voice
         existingVoice->noteOn(midiNote, currentWaveform_);
         existingVoice->getAmpEnvelope().setAttack(attack_);
         existingVoice->getAmpEnvelope().setDecay(decay_);
@@ -197,7 +250,8 @@ void SynthEngine::noteOn(int midiNote) {
         voice->setFilterEnvelopeAmount(filterEnvAmount_);
         voice->getFilter().setCutoff(filterCutoff_);
         voice->getFilter().setResonance(filterResonance_);
-        LOGD("Note ON: %d", midiNote);
+        LOGD("Note ON: %d (Attack: %.3fs, Gate will be: %.3fs)", 
+             midiNote, attack_, attack_ + 0.01f);
     } else {
         LOGD("No free voice for note: %d", midiNote);
     }
@@ -231,6 +285,7 @@ void SynthEngine::setWaveform(int waveform) {
 
 void SynthEngine::setFilterCutoff(float cutoff) {
     filterCutoff_ = cutoff;
+    LOGD("Filter Cutoff: %.2f%%", cutoff * 100.0f);
     for (auto& voice : voices_) {
         voice.getFilter().setCutoff(cutoff);
     }
@@ -245,6 +300,7 @@ void SynthEngine::setFilterResonance(float resonance) {
 
 void SynthEngine::setAttack(float attack) {
     attack_ = attack;
+    LOGD("Attack time: %.3fs", attack);
     for (auto& voice : voices_) {
         voice.getAmpEnvelope().setAttack(attack);
     }
@@ -316,6 +372,7 @@ void SynthEngine::setLFOAmount(float amount) {
 
 void SynthEngine::setDelayEnabled(bool enabled) {
     delayEnabled_ = enabled;
+    LOGD("Delay: %s", enabled ? "ON" : "OFF");
 }
 
 void SynthEngine::setDelayTime(float time) {
@@ -332,6 +389,7 @@ void SynthEngine::setDelayMix(float mix) {
 
 void SynthEngine::setChorusEnabled(bool enabled) {
     chorusEnabled_ = enabled;
+    LOGD("Chorus: %s", enabled ? "ON" : "OFF");
 }
 
 void SynthEngine::setChorusRate(float rate) {
@@ -348,6 +406,7 @@ void SynthEngine::setChorusMix(float mix) {
 
 void SynthEngine::setReverbEnabled(bool enabled) {
     reverbEnabled_ = enabled;
+    LOGD("Reverb: %s", enabled ? "ON" : "OFF");
 }
 
 void SynthEngine::setReverbSize(float size) {
@@ -364,32 +423,19 @@ void SynthEngine::setReverbMix(float mix) {
 
 void SynthEngine::setArpeggiatorEnabled(bool enabled) {
     if (!enabled && arpeggiatorEnabled_ && arpNoteActive_) {
-        // Turn off any active arp note when disabling
         suppressArpCapture_ = true;
         noteOff(currentArpNote_);
         suppressArpCapture_ = false;
     }
-
     arpeggiatorEnabled_ = enabled;
-
+    LOGD("Arpeggiator: %s", enabled ? "ON" : "OFF");
     if (!enabled) {
-        // Reset arp state completely when disabling
         heldNotes_.clear();
         arpSampleCounter_ = 0.0f;
-        arpIndex_ = 0;
         arpNoteActive_ = false;
-        arpStepStarted_ = false;
-        currentArpNote_ = -1;
-    } else {
-        // When enabling, start from a clean step boundary
-        arpSampleCounter_ = 0.0f;
-        arpIndex_ = 0;
-        arpNoteActive_ = false;
-        arpStepStarted_ = false;
         currentArpNote_ = -1;
     }
 }
-
 
 void SynthEngine::setArpeggiatorPattern(int pattern) {
     arpeggiatorPattern_ = std::max(0, std::min(3, pattern));
@@ -397,10 +443,12 @@ void SynthEngine::setArpeggiatorPattern(int pattern) {
 
 void SynthEngine::setArpeggiatorRate(float bpm) {
     arpeggiatorRateBpm_ = std::max(20.0f, bpm);
+    LOGD("Arp tempo: %.0f BPM", bpm);
 }
 
 void SynthEngine::setArpeggiatorGate(float gate) {
     arpeggiatorGate_ = std::max(0.05f, std::min(1.0f, gate));
+    LOGD("Arp gate: %.0f%%", gate * 100.0f);
 }
 
 void SynthEngine::setArpeggiatorSubdivision(int subdivision) {
@@ -424,31 +472,18 @@ void SynthEngine::setArpeggiatorSubdivision(int subdivision) {
 
 void SynthEngine::setSequencerEnabled(bool enabled) {
     if (!enabled && sequencerNoteActive_) {
-        // Turn off any active sequencer note when disabling
         suppressArpCapture_ = true;
         noteOff(sequencerActiveNote_);
         suppressArpCapture_ = false;
     }
-
     sequencerEnabled_ = enabled;
-
+    LOGD("Sequencer: %s", enabled ? "ON" : "OFF");
     if (!enabled) {
-        // Reset sequencer state completely when disabling
         sequencerSampleCounter_ = 0.0f;
-        sequencerCurrentStep_ = 0;
-        sequencerActiveNote_ = -1;
         sequencerNoteActive_ = false;
-        sequencerStepStarted_ = false;
-    } else {
-        // When enabling, start from the first step with a clean state
-        sequencerSampleCounter_ = 0.0f;
-        sequencerCurrentStep_ = 0;
         sequencerActiveNote_ = -1;
-        sequencerNoteActive_ = false;
-        sequencerStepStarted_ = false;
     }
 }
-
 
 void SynthEngine::setSequencerTempo(float bpm) {
     sequencerTempoBpm_ = std::max(20.0f, bpm);
@@ -473,26 +508,16 @@ void SynthEngine::setSequencerStep(int index, int midiNote, bool active) {
     sequencerSteps_[index].active = active;
 }
 
-// CRITICAL FIX: Process arpeggiator ONCE per buffer, not per sample!
-void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
+void SynthEngine::processArpeggiator(float sampleRate) {
     if (!arpeggiatorEnabled_ || heldNotes_.empty()) {
         return;
     }
 
-    // Advance position within the current step
-    arpSampleCounter_ += numFrames;
+    float stepDuration = (60.0f / std::max(20.0f, arpeggiatorRateBpm_)) * arpeggiatorStepMultiplier_;
+    float timeInStep = arpSampleCounter_ / sampleRate;
 
-    float stepDuration = (60.0f / arpeggiatorRateBpm_) * arpeggiatorStepMultiplier_;
-    float stepDurationSamples = stepDuration * sampleRate;
-    float gateTimeSamples = stepDurationSamples * arpeggiatorGate_;
-
-    // Start a new step (and its note) if we haven't yet
-    if (!arpStepStarted_) {
+    if (!arpNoteActive_) {
         int noteCount = static_cast<int>(heldNotes_.size());
-        if (noteCount <= 0) {
-            return;
-        }
-
         int idx = 0;
         switch (arpeggiatorPattern_) {
             case 0: // Up
@@ -518,65 +543,48 @@ void SynthEngine::processArpeggiator(float sampleRate, int32_t numFrames) {
         }
 
         currentArpNote_ = heldNotes_[idx];
-
-        // Ensure any previous arp note is turned off before starting a new one
-        if (arpNoteActive_) {
-            suppressArpCapture_ = true;
-            noteOff(currentArpNote_);
-            suppressArpCapture_ = false;
-            arpNoteActive_ = false;
-        }
-
         suppressArpCapture_ = true;
         noteOn(currentArpNote_);
         suppressArpCapture_ = false;
         arpNoteActive_ = true;
-        arpStepStarted_ = true;
+        
+        LOGD("ARP STEP: Note %d, Duration: %.3fs, Attack: %.3fs, MinGate: %.3fs",
+             currentArpNote_, stepDuration, attack_, attack_ + 0.01f);
     }
 
-    // Gate the current note
-    if (arpNoteActive_ && arpSampleCounter_ >= gateTimeSamples) {
+    // Calculate minimum gate time based on envelope
+    float minGateTime = attack_ + 0.01f;
+    float desiredGateTime = stepDuration * arpeggiatorGate_;
+    float gateTime = std::max(minGateTime, desiredGateTime);
+    
+    float timeUntilNextStep = stepDuration - timeInStep;
+    if (arpNoteActive_ && timeInStep >= gateTime && timeUntilNextStep > 0.005f) {
         suppressArpCapture_ = true;
         noteOff(currentArpNote_);
         suppressArpCapture_ = false;
         arpNoteActive_ = false;
     }
 
-    // Advance to the next step when the duration has elapsed
-    if (arpSampleCounter_ >= stepDurationSamples) {
-        // Make sure note is off before advancing
+    if (timeInStep >= stepDuration) {
         if (arpNoteActive_) {
             suppressArpCapture_ = true;
             noteOff(currentArpNote_);
             suppressArpCapture_ = false;
-            arpNoteActive_ = false;
         }
-
-        // Reset counter and advance to the next arp index
-        arpSampleCounter_ -= stepDurationSamples;
-
-        if (!heldNotes_.empty()) {
-            arpIndex_ = (arpIndex_ + 1) % std::max<int>(1, heldNotes_.size());
-        } else {
-            arpIndex_ = 0;
-        }
-
-        // Mark that the next call should start a new step
-        arpStepStarted_ = false;
+        arpSampleCounter_ = 0.0f;
+        arpIndex_ = (arpIndex_ + 1) % std::max<int>(1, heldNotes_.size());
+        arpNoteActive_ = false;
     }
+
+    arpSampleCounter_ += 1.0f;
 }
 
-
-// CRITICAL FIX: Process sequencer ONCE per buffer, not per sample!
-void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
+void SynthEngine::processSequencer(float sampleRate) {
     if (!sequencerEnabled_ || sequencerSteps_.empty()) {
         return;
     }
 
-    // Advance position within the current step
-    sequencerSampleCounter_ += numFrames;
-
-    float beatSeconds = 60.0f / sequencerTempoBpm_;
+    float beatSeconds = 60.0f / std::max(20.0f, sequencerTempoBpm_);
     float lengthMultiplier = 1.0f;
     switch (sequencerStepLength_) {
         case SequencerStepLength::Eighth:
@@ -594,54 +602,44 @@ void SynthEngine::processSequencer(float sampleRate, int32_t numFrames) {
     }
 
     float stepDuration = beatSeconds * lengthMultiplier;
-    float stepDurationSamples = stepDuration * sampleRate;
-    float gateTimeSamples = stepDurationSamples * 0.9f;
+    float timeInStep = sequencerSampleCounter_ / sampleRate;
 
-    // Start the current step's note if we haven't yet
-    if (!sequencerStepStarted_) {
+    if (!sequencerNoteActive_) {
         const auto& step = sequencerSteps_[sequencerCurrentStep_ % sequencerSteps_.size()];
         sequencerActiveNote_ = step.midiNote;
-
         if (step.active) {
             suppressArpCapture_ = true;
             noteOn(step.midiNote);
             suppressArpCapture_ = false;
             sequencerNoteActive_ = true;
-        } else {
-            sequencerNoteActive_ = false;
         }
-
-        sequencerStepStarted_ = true;
     }
 
-    // Gate off the note part-way through the step
-    if (sequencerNoteActive_ && sequencerSampleCounter_ >= gateTimeSamples) {
+    float minGateTime = attack_ + 0.01f;
+    float desiredGateTime = stepDuration * 0.9f;
+    float gateTime = std::max(minGateTime, desiredGateTime);
+    gateTime = std::min(gateTime, stepDuration - 0.005f);
+    
+    if (sequencerNoteActive_ && timeInStep >= gateTime) {
         suppressArpCapture_ = true;
         noteOff(sequencerActiveNote_);
         suppressArpCapture_ = false;
         sequencerNoteActive_ = false;
     }
 
-    // Advance to the next step when its duration has elapsed
-    if (sequencerSampleCounter_ >= stepDurationSamples) {
-        // Make sure note is off before advancing
+    if (timeInStep >= stepDuration) {
         if (sequencerNoteActive_) {
             suppressArpCapture_ = true;
             noteOff(sequencerActiveNote_);
             suppressArpCapture_ = false;
-            sequencerNoteActive_ = false;
         }
-
-        sequencerSampleCounter_ -= stepDurationSamples;
-        if (!sequencerSteps_.empty()) {
-            sequencerCurrentStep_ = (sequencerCurrentStep_ + 1) % sequencerSteps_.size();
-        } else {
-            sequencerCurrentStep_ = 0;
-        }
-        sequencerStepStarted_ = false;
+        sequencerSampleCounter_ = 0.0f;
+        sequencerCurrentStep_ = (sequencerCurrentStep_ + 1) % sequencerSteps_.size();
+        sequencerNoteActive_ = false;
     }
-}
 
+    sequencerSampleCounter_ += 1.0f;
+}
 
 void SynthEngine::configureSequenceLength() {
     int stepsPerMeasure = getStepsPerMeasure();
@@ -824,18 +822,21 @@ void SynthEngine::initializeEffects(float sampleRate) {
 
 
 Voice* SynthEngine::findFreeVoice() {
+    // First, try to find a completely inactive voice (not playing any note)
     for (auto& voice : voices_) {
         if (!voice.isNoteActive() && voice.getMidiNote() == -1) {
             return &voice;
         }
     }
     
+    // Second, try to find a voice that's releasing
     for (auto& voice : voices_) {
         if (!voice.isActive()) {
             return &voice;
         }
     }
     
+    // If no free voice, steal the oldest one (first in array)
     return &voices_[0];
 }
 
