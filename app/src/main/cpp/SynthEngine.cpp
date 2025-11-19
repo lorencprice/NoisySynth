@@ -835,30 +835,23 @@ void SynthEngine::initializeEffects(float sampleRate) {
 
 
 Voice* SynthEngine::findFreeVoice() {
-    // First, look for a truly idle voice
+    // First, truly idle voices
     for (auto& voice : voices_) {
-        if (!voice.isActive() && voice.getMidiNote() == -1 && !voice.isNoteActive()) {
+        if (voice.isFullyIdle()) {
+
             return &voice;
         }
     }
     
-    // Next, look for a voice in release that's almost done
-    Voice* bestCandidate = nullptr;
-    float lowestLevel = 1.0f;
+    // Next, voices that can be stolen
     for (auto& voice : voices_) {
-        if (!voice.isNoteActive() && !voice.isActive()) {
-            float level = voice.getAmpLevel();
-            if (level < lowestLevel) {
-                lowestLevel = level;
-                bestCandidate = &voice;
-            }
+        if (voice.canBeStolen()) {
+
+            return &voice;
         }
     }
-    if (bestCandidate && lowestLevel < 0.1f) {
-        return bestCandidate;
-    }
     
-    // Finally, steal the quietest voice
+    // Last resort: steal quietest
     Voice* quietest = &voices_[0];
     float minLevel = quietest->getAmpLevel();
     for (auto& voice : voices_) {
@@ -868,6 +861,8 @@ Voice* SynthEngine::findFreeVoice() {
             quietest = &voice;
         }
     }
+
+         quietest->getMidiNote(), minLevel);
     return quietest;
 }
 
