@@ -377,29 +377,34 @@ public:
         return sample;
     }
     
-    // A voice is considered active as long as it may contribute non-zero audio
-    // (envelopes running, fade-out or click-suppression in progress, or still bound to a note).
+    bool isKeyHeld() const { 
+        return active_;  // Is the key currently pressed?
+    }
+    
+    bool isProducingAudio() const {
+        // Keep processing while ANY audio might be produced
+        return active_
+            || ampEnvelope_.isActive()
+            || filterEnvelope_.isActive()
+            || (stopFadeoutSamples_ > 0)
+            || (clickSuppressionSamples_ > 0);
+    }
+    
+    // KEEP the original isActive() for backward compatibility
+    // This is what prevents clicks!
     bool isActive() const {
-        // A voice is active if it's currently playing a note (key held)
-        return active_;
+        return isProducingAudio();  // Used by audio processing
     }
     
-    bool isFullyIdle() const {
-        // A voice is fully idle only when everything is done
-        return !active_ 
-            && !ampEnvelope_.isActive() 
-            && !filterEnvelope_.isActive()
-            && stopFadeoutSamples_ == 0
-            && clickSuppressionSamples_ == 0
-            && midiNote_ == -1;
+    bool isNoteActive() const { 
+        return ampEnvelope_.isActive();  // Envelope is doing something
     }
     
+    // For voice stealing decisions
     bool canBeStolen() const {
-        // A voice can be stolen if it's in release or idle
         return !active_ && ampEnvelope_.getLevel() < 0.1f;
     }
 
-    bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
     float getAmpLevel() const { return ampEnvelope_.getLevel(); }
     
