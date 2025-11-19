@@ -134,7 +134,16 @@ public:
         return std::max(0.0f, std::min(1.0f, level_));
     }
 
-    bool isActive() const { return phase_ != Phase::IDLE; }
+    bool isActive() const { 
+        bool active = phase_ != Phase::IDLE;
+        if (!active && level_ > 0.001f) {
+            // Safety check - if we think we're idle but still have level, we're not really idle
+            LOGD("      WARNING: Envelope idle but level=%.3f", level_);
+            return true;
+        }
+        return active;
+    }
+        
     float getLevel() const { return level_; }
 
 
@@ -321,20 +330,24 @@ public:
         // Check if envelopes are done
         bool envelopesActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
         
-        if (!envelopesActive) {
+        if (!active && !envelopesActive) {
             // CRITICAL FIX: Don't immediately return 0.0!
             // Add a very short fade-out (48 samples = 1ms at 48kHz)
             if (stopFadeoutSamples_ > 0) {
                 // Still fading out
                 stopFadeoutSamples_--;
             } else {
+                if(midiNote_ != -1){
                 // Completely done: mark this voice as fully inactive and reusable
-                midiNote_ = -1;
-                wasRecentlyActive_ = false;
-                active_ = false;
+                    midiNote_ = -1;
+                    wasRecentlyActive_ = false;
+                    phase_ = 0.0f;
+                    filter_.reset();
+                }
                 return 0.0f;
+                
             }
-        } else if (stopFadeoutSamples_ == 0) {
+        } else if (stopFadeoutSamples_ < 48) {
             // Reset fade-out counter when envelopes are active
             stopFadeoutSamples_ = 48; // 1ms fade-out
         }
