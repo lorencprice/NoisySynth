@@ -394,12 +394,22 @@ public:
     // (envelopes running, fade-out or click-suppression in progress, or still bound to a note).
     bool isActive() const {
         return active_
-            || ampEnvelope_.isActive()
-            || filterEnvelope_.isActive()
-            || (stopFadeoutSamples_ > 0)
-            || (clickSuppressionSamples_ > 0)
-            || (midiNote_ != -1);
     }
+    bool isFullyIdle() const {
+        // A voice is fully idle only when everything is done
+        return !active_ 
+            && !ampEnvelope_.isActive() 
+            && !filterEnvelope_.isActive()
+            && stopFadeoutSamples_ == 0
+            && clickSuppressionSamples_ == 0
+            && midiNote_ == -1;
+    }
+    bool canBeStolen() const {
+        // A voice can be stolen if it's in release or idle
+        return !active_ && ampEnvelope_.getLevel() < 0.1f;
+    }
+
+
     bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
     float getAmpLevel() const { return ampEnvelope_.getLevel(); }
