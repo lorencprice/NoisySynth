@@ -176,12 +176,16 @@ fun WhiteKey(
             )
             .pointerInput(key.midiNote) {
                 detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        onNoteOn(key.midiNote)
-                        tryAwaitRelease()
-                        isPressed = false
-                        onNoteOff(key.midiNote)
+                    onPress = { offset ->
+                        try {
+                            isPressed = true
+                            onNoteOn(key.midiNote)
+                            tryAwaitRelease()
+                        } finally {
+                            // ALWAYS call noteOff, even if interrupted
+                            isPressed = false
+                            onNoteOff(key.midiNote)
+                        }
                     }
                 )
             },
@@ -250,12 +254,16 @@ fun BlackKey(
             )
             .pointerInput(key.midiNote) {
                 detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        onNoteOn(key.midiNote)
-                        tryAwaitRelease()
-                        isPressed = false
-                        onNoteOff(key.midiNote)
+                    onPress = { offset ->
+                        try {
+                            isPressed = true
+                            onNoteOn(key.midiNote)
+                            tryAwaitRelease()
+                        } finally {
+                            // ALWAYS call noteOff, even if interrupted
+                            isPressed = false
+                            onNoteOff(key.midiNote)
+                        }
                     }
                 )
             }
