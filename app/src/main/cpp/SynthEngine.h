@@ -276,30 +276,29 @@ public:
         frequency_ = midiNoteToFrequency(midiNote);
         waveform_ = waveform;
         active_ = true;
+        
+        // ALWAYS reset the envelopes on noteOn
         ampEnvelope_.noteOn();
         filterEnvelope_.noteOn();
         
-        // CRITICAL FIX: Reset filter on NEW notes only (not retriggered notes)
-        // This prevents state accumulation in the arpeggiator
-        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
+        // Reset filter for completely new notes
+        if (midiNote_ != lastMidiNote_) {
             filter_.reset();
-        }
-        
-        // Don't hard-reset phase to zero unless it's a new note
-        if (midiNote_ != lastMidiNote_ || !wasRecentlyActive_) {
             phase_ = 0.0f;
-            
-            // Add ultra-short click suppression fade-in
             clickSuppressionSamples_ = 96;
             clickSuppression_ = 0.0f;
         }
         
+        // Reset the fadeout counter when starting a new note
+        stopFadeoutSamples_ = 48;
+        
         lastMidiNote_ = midiNote;
         wasRecentlyActive_ = true;
     }
+
     
     void noteOff() {
-        // Do not mark the voice inactive here; let the release/fade-out finish.
+        active_ = false;  // Immediately mark as not active
         ampEnvelope_.noteOff();
         filterEnvelope_.noteOff();
     }
