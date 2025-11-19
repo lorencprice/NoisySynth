@@ -861,8 +861,6 @@ Voice* SynthEngine::findFreeVoice() {
             quietest = &voice;
         }
     }
-
-         quietest->getMidiNote(), minLevel);
     return quietest;
 }
 
