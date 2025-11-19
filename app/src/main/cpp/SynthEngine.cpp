@@ -835,39 +835,56 @@ void SynthEngine::initializeEffects(float sampleRate) {
 
 
 Voice* SynthEngine::findFreeVoice() {
-    // First, truly idle voices
+    // First priority: completely idle voices
     for (auto& voice : voices_) {
-        if (voice.isFullyIdle()) {
-
+        if (voice.getMidiNote() == -1 && !voice.isProducingAudio()) {
             return &voice;
         }
     }
     
-    // Next, voices that can be stolen
+    // Second priority: released voices that are mostly faded
     for (auto& voice : voices_) {
-        if (voice.canBeStolen()) {
-
+        if (!voice.isKeyHeld() && voice.getAmpLevel() < 0.05f) {
             return &voice;
         }
     }
     
-    // Last resort: steal quietest
-    Voice* quietest = &voices_[0];
-    float minLevel = quietest->getAmpLevel();
+    // Last resort: steal the quietest released voice
+    Voice* quietest = nullptr;
+    float minLevel = 1.0f;
+    
+    // First try to find a released voice to steal
     for (auto& voice : voices_) {
-        float lvl = voice.getAmpLevel();
-        if (lvl < minLevel) {
-            minLevel = lvl;
-            quietest = &voice;
+        if (!voice.isKeyHeld()) {
+            float lvl = voice.getAmpLevel();
+            if (lvl < minLevel) {
+                minLevel = lvl;
+                quietest = &voice;
+            }
         }
     }
+    
+    // If all voices have keys held, steal the overall quietest
+    if (!quietest) {
+        quietest = &voices_[0];
+        minLevel = quietest->getAmpLevel();
+        for (auto& voice : voices_) {
+            float lvl = voice.getAmpLevel();
+            if (lvl < minLevel) {
+                minLevel = lvl;
+                quietest = &voice;
+            }
+        }
+    }
+    
     return quietest;
 }
 
 
 Voice* SynthEngine::findVoiceForNote(int midiNote) {
     for (auto& voice : voices_) {
-        if (voice.getMidiNote() == midiNote && voice.isNoteActive()) {
+        // Check if this voice has this note AND the key is still held
+        if (voice.getMidiNote() == midiNote && voice.isKeyHeld()) {
             return &voice;
         }
     }
