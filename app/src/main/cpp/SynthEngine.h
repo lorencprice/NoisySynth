@@ -138,7 +138,7 @@ public:
         bool active = phase_ != Phase::IDLE;
         if (!active && level_ > 0.001f) {
             // Safety check - if we think we're idle but still have level, we're not really idle
-            LOGD("      WARNING: Envelope idle but level=%.3f", level_);
+
             return true;
         }
         return active;
@@ -330,7 +330,7 @@ public:
         // Check if envelopes are done
         bool envelopesActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
         
-        if (!active && !envelopesActive) {
+        if (!active_ && !envelopesActive) {
             // CRITICAL FIX: Don't immediately return 0.0!
             // Add a very short fade-out (48 samples = 1ms at 48kHz)
             if (stopFadeoutSamples_ > 0) {
@@ -393,7 +393,7 @@ public:
     // A voice is considered active as long as it may contribute non-zero audio
     // (envelopes running, fade-out or click-suppression in progress, or still bound to a note).
     bool isActive() const {
-        return active_
+        return active_;
     }
     bool isFullyIdle() const {
         // A voice is fully idle only when everything is done
