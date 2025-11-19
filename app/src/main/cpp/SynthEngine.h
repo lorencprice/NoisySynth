@@ -134,16 +134,7 @@ public:
         return std::max(0.0f, std::min(1.0f, level_));
     }
 
-    bool isActive() const { 
-        bool active = phase_ != Phase::IDLE;
-        if (!active && level_ > 0.001f) {
-            // Safety check - if we think we're idle but still have level, we're not really idle
-
-            return true;
-        }
-        return active;
-    }
-        
+    bool isActive() const { return phase_ != Phase::IDLE; }
     float getLevel() const { return level_; }
 
 
@@ -330,24 +321,20 @@ public:
         // Check if envelopes are done
         bool envelopesActive = ampEnvelope_.isActive() || filterEnvelope_.isActive();
         
-        if (!active_ && !envelopesActive) {
+        if (!envelopesActive) {
             // CRITICAL FIX: Don't immediately return 0.0!
             // Add a very short fade-out (48 samples = 1ms at 48kHz)
             if (stopFadeoutSamples_ > 0) {
                 // Still fading out
                 stopFadeoutSamples_--;
             } else {
-                if(midiNote_ != -1){
                 // Completely done: mark this voice as fully inactive and reusable
-                    midiNote_ = -1;
-                    wasRecentlyActive_ = false;
-                    phase_ = 0.0f;
-                    filter_.reset();
-                }
+                midiNote_ = -1;
+                wasRecentlyActive_ = false;
+                active_ = false;
                 return 0.0f;
-                
             }
-        } else if (stopFadeoutSamples_ < 48) {
+        } else if (stopFadeoutSamples_ == 0) {
             // Reset fade-out counter when envelopes are active
             stopFadeoutSamples_ = 48; // 1ms fade-out
         }
@@ -393,26 +380,13 @@ public:
     // A voice is considered active as long as it may contribute non-zero audio
     // (envelopes running, fade-out or click-suppression in progress, or still bound to a note).
     bool isActive() const {
-        return active_;
+        return active_
+            || ampEnvelope_.isActive()
+            || filterEnvelope_.isActive()
+            || (stopFadeoutSamples_ > 0)
+            || (clickSuppressionSamples_ > 0)
+            || (midiNote_ != -1);
     }
-    bool isFullyIdle() const {
-        // A voice is fully idle only when everything is done
-        return !active_ 
-            && !ampEnvelope_.isActive() 
-            && !filterEnvelope_.isActive()
-            && stopFadeoutSamples_ == 0
-            && clickSuppressionSamples_ == 0
-            && midiNote_ == -1;
-    }
-    bool canBeStolen() const {
-        // A voice can be stolen if it's in release or idle
-        return !active_ && ampEnvelope_.getLevel() < 0.1f;
-    }
-    bool isPlayingNote(int midiNote) const {
-        return midiNote_ == midiNote && active_;
-    }
-
-
     bool isNoteActive() const { return ampEnvelope_.isActive(); }
     int getMidiNote() const { return midiNote_; }
     float getAmpLevel() const { return ampEnvelope_.getLevel(); }
