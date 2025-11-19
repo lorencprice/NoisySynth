@@ -605,7 +605,7 @@ private:
     bool suppressArpCapture_ = false;
 
     // Output safety
-    float outputGain_ = 0.75f;
+    float outputGain_ = 0.55f;
     // Polyphony gain smoothing
     float polyGain_ = 1.0f;
 
