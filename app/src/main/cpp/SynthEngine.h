@@ -67,6 +67,15 @@ public:
     float process(float sampleRate) {
         float dt = 1.0f / sampleRate;
         time_ += dt;
+        
+        // Add a safety timeout - if we've been in any phase too long, force to idle
+        const float MAX_PHASE_TIME = 10.0f; // 10 seconds max per phase
+        if (time_ > MAX_PHASE_TIME && phase_ != Phase::SUSTAIN && phase_ != Phase::IDLE) {
+            phase_ = Phase::IDLE;
+            level_ = 0.0f;
+            time_ = 0.0f;
+            return 0.0f;
+        }
 
         switch (phase_) {
             case Phase::ATTACK:
@@ -106,6 +115,11 @@ public:
                 // Smooth decay from the level at noteOff down to 0
                 level_ = releaseStartLevel_ * (1.0f - t);
                 if (time_ >= release_ || level_ <= 0.0001f) {
+                    phase_ = Phase::IDLE;
+                    level_ = 0.0f;
+                }
+                // Add extra check to force to idle if release takes too long
+                if (time_ >= release_ * 2.0f || level_ <= 0.0001f) {
                     phase_ = Phase::IDLE;
                     level_ = 0.0f;
                 }
