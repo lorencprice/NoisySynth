@@ -408,6 +408,9 @@ public:
         // A voice can be stolen if it's in release or idle
         return !active_ && ampEnvelope_.getLevel() < 0.1f;
     }
+    bool isPlayingNote(int midiNote) const {
+        return midiNote_ == midiNote && active_;
+    }
 
 
     bool isNoteActive() const { return ampEnvelope_.isActive(); }
