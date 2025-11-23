@@ -219,7 +219,7 @@
 
 ---
 
-### 8. Noisy Texture (Your Style!)
+### 8. Noisy Texture
 *Embracing imperfection*
 
 **OSC Tab:**
@@ -274,37 +274,6 @@ Half a second later:
 **Actual Cutoff = 30% + 20% + (-10%) = 40%** (filter has closed)
 
 This is how you get complex, evolving filter movement!
-
----
-
-## Tips for Your Production Style
-
-Based on your interest in noisy, textured sound design:
-
-### 1. Embrace High Resonance
-- Don't be afraid of 80-95% resonance
-- At low cutoff values, this creates instability and "dirt"
-- The SVF filter can handle extreme settings without exploding
-
-### 2. Use Mismatched Envelopes
-- Make filter envelope longer than amp envelope
-- Example: Amp release 0.2s, Filter release 0.8s
-- Creates evolving tails even after notes stop
-
-### 3. Off-Grid LFO Rates
-- Instead of clean 2, 4, 8 Hz, try 3.7, 5.3, 7.8 Hz
-- Creates polyrhythmic modulation that doesn't sync perfectly
-- More organic, less "locked to grid" feel
-
-### 4. Layer Low Cutoff + High Resonance
-- Cutoff at 20-30% with resonance 70-90%
-- Emphasizes the resonant peak while filtering out highs
-- Characteristic "broken speaker" / "overdriven" quality
-
-### 5. Experiment with Square Wave + Filter
-- Square wave through high-resonance filter = unique character
-- Different from typical sawtooth acid sounds
-- More digital, aggressive
 
 ---
 
