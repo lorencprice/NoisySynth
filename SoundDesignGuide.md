@@ -246,7 +246,6 @@
 - Rate: **3.5 Hz** (not perfectly synced)
 - Amount: **50%**
 
-**Tip:** This creates an intentionally "imperfect" sound with movement. The LFO rate being slightly off-grid adds to the organic feel. At low cutoff with high resonance, you get a characteristic "broken" texture. 
 ---
 
 ## Modulation Combinations
