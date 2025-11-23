@@ -1,7 +1,5 @@
 # NoisySynth Sound Design Guide
 
-Now that your synth has a proper filter with resonance, working LFO, and filter envelope, you can create some genuinely interesting sounds! Here are some starting points.
-
 ## Classic Synth Patches
 
 ### 1. TB-303 Style Acid Bass
