@@ -176,7 +176,7 @@ Tap the keyboard keys (C, D, E, F, G, A, B, C) to trigger notes. Drag to slide b
 
 ### Adding Noise/Texture
 
-To match your production style, you can add noise to the oscillator. In `SynthEngine.h`, modify the `generateWaveform()` method:
+You can add noise to the oscillator. In `SynthEngine.h`, modify the `generateWaveform()` method:
 
 ```cpp
 float generateWaveform() {
